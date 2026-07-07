@@ -1,0 +1,32 @@
+name = "admin-backend-3-api-hono"
+main = "src/index.ts"
+compatibility_date = "2025-08-21"
+account_id = "eff602d8715ddb9bcf1b4ba8b2ca0788"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+[vars]
+ENVIRONMENT = "development"
+JWT_SECRET = "your-jwt-secret-key-development"
+
+# Cloudflare Workers 兼容性标志
+compatibility_flags = ["nodejs_compat"]
+
+# 本地开发时使用SQLite，部署时将使用D1
+[[d1_databases]]
+binding = "DB"
+database_name = "admin-backend-db"
+database_id = "fced7ccd-3871-4dd6-a1f9-9278732d6922"
+
+# Worker 路由
+[[routes]]
+pattern = "api.9shi.cc/admin/*"
+zone_name = "9shi.cc"
+
+# 定时任务：
+# - UTC 00:00（北京时间08:00）：保存前一天每日数据统计到 D1
+# - UTC 16:00（北京时间00:00）：清理 draft 数据
+[triggers]
+crons = ["0 0 * * *", "0 16 * * *"]

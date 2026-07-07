@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "contracts/*"
+  - "services/api-hono"
+  - "services/api-nest"
+
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.1
+  vitest: 4.1.9

@@ -1,0 +1,17 @@
+{
+  "name": "admin-backend-3",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "build:api:hono": "pnpm --dir services/api-hono build",
+    "build:page": "pnpm --dir apps/page build",
+    "check": "pnpm -r --if-present check",
+    "dev:api:hono": "pnpm --dir services/api-hono dev",
+    "dev:page": "pnpm --dir apps/page dev",
+    "fix:page": "pnpm --dir apps/page fix",
+    "preview:page": "pnpm --dir apps/page preview",
+    "test:page": "pnpm --dir apps/page test"
+  }
+}

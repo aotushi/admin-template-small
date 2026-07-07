@@ -1,0 +1,17 @@
+# Migration scripts (本地数据迁移脚本)
+test-*.js
+
+# Migration logs and data
+migration-logs/
+*.sql
+*.txt
+
+# Local development
+.wrangler/
+.dev.vars
+node_modules/
+
+# Backup files
+remote-backup*.sql
+remote_dump.sql
+temp-analysis.db

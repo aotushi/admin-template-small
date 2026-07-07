@@ -1,0 +1,99 @@
+@import "./adaptive.css";
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --font-family:
+    -apple-system, blinkmacsystemfont, "Segoe UI", roboto, "Helvetica Neue", arial, "Noto Sans",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --background: 0 0% 100%;
+  --background-deep: 220 23% 95%;
+  --foreground: 210 6% 21%;
+  --card: 0 0% 100%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --primary: 213 93% 61%;
+  --primary-foreground: 0 0% 98%;
+  --success: 144 57% 58%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 10%;
+  --accent: 240 5% 96%;
+  --accent-dark: 216 14% 93%;
+  --accent-darker: 216 11% 91%;
+  --accent-foreground: 240 6% 10%;
+  --border: 240 5.9% 90%;
+  --input: 240deg 5.88% 90%;
+  --input-placeholder: 217 10.6% 65%;
+  --input-background: 0 0% 100%;
+  --radius: 0.5rem;
+  --el-color-primary: hsl(var(--primary));
+  --el-color-primary-light-3: hsl(var(--primary) / 78%);
+  --el-color-primary-light-5: hsl(var(--primary) / 58%);
+  --el-color-primary-light-7: hsl(var(--primary) / 34%);
+  --el-color-primary-light-8: hsl(var(--primary) / 24%);
+  --el-color-primary-light-9: hsl(var(--primary) / 12%);
+  --el-color-primary-dark-2: hsl(var(--primary) / 86%);
+  accent-color: hsl(var(--primary));
+  color-scheme: light;
+}
+
+.app-dark {
+  --background: 222.34deg 10.43% 12.27%;
+  --background-deep: 225 64% 2%;
+  --foreground: 0 0% 95%;
+  --card: 222.34deg 10.43% 12.27%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --secondary: 240 5% 17%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 216 5% 19%;
+  --accent-dark: 240 0% 22%;
+  --accent-darker: 240 0% 26%;
+  --accent-foreground: 0 0% 98%;
+  --border: 0 0% 19%;
+  --input: 0deg 0% 100% / 10%;
+  --input-placeholder: 218deg 11% 65%;
+  --input-background: 0deg 0% 100% / 5%;
+  color-scheme: dark;
+}
+
+html,
+body,
+#app {
+  min-height: 100vh;
+  margin: 0;
+}
+
+body {
+  color: hsl(var(--foreground));
+  font-family: var(--font-family);
+  background: hsl(var(--background-deep));
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.el-button {
+  --el-border-radius-base: 6px;
+  font-weight: 500;
+}
+
+.app-dark .el-popper,
+.app-dark .el-dropdown__popper {
+  --el-bg-color-overlay: hsl(var(--card));
+  --el-border-color-light: hsl(var(--border));
+  --el-text-color-regular: hsl(var(--foreground));
+  --el-text-color-secondary: hsl(var(--muted-foreground));
+}

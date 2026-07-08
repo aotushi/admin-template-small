@@ -4,7 +4,6 @@ import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import { getJWTSecret } from '../middlewares/auth';
 import { logger } from '../utils/logger';
-import { maskUsername, maskEmail } from '../utils/mask';
 import {
   createAuthTokenPair,
   createUserPayload,
@@ -62,9 +61,9 @@ auth.post('/login', async c => {
         ...tokens,
         user: {
           id: user.id,
-          username: maskUsername(user.username),
+          username: user.username,
           role: user.role,
-          email: maskEmail(user.email || ''),
+          email: user.email || '',
           admin_level: user.admin_level,
           created_by: user.created_by
         },
@@ -191,11 +190,7 @@ auth.get('/profile', async c => {
 
     return c.json({
       success: true,
-      data: {
-        ...user,
-        username: maskUsername(user.username),
-        email: maskEmail(user.email || '')
-      }
+      data: user
     });
   } catch (error) {
     logger.error('Profile error', error);
@@ -225,11 +220,7 @@ auth.get('/users', async c => {
 
     return c.json({
       success: true,
-      data: users.map((u: any) => ({
-        ...u,
-        username: maskUsername(u.username),
-        email: maskEmail(u.email || '')
-      }))
+      data: users
     });
   } catch (error) {
     logger.error('Users list error', error);

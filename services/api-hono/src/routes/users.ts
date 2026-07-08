@@ -12,7 +12,7 @@ import { authMiddleware, adminMiddleware } from '../middlewares/auth';
 import { getCurrentShanghaiTime, toBeijingTime } from '../utils/datetime';
 import { logger } from '../utils/logger';
 import { normalizeUrl } from '../utils/data-processor';
-import { maskUsername, maskEmail, maskUrl } from '../utils/mask';
+import { maskUrl } from '../utils/mask';
 
 const users = new Hono<{ Bindings: Env }>();
 
@@ -52,14 +52,7 @@ users.get('/list', authMiddleware, adminMiddleware, async c => {
 
     return c.json({
       success: true,
-      data: usersList.map((u: any) => ({
-        ...u,
-        username: maskUsername(u.username),
-        email: maskEmail(u.email || ''),
-        created_by_username: u.created_by_username
-          ? maskUsername(u.created_by_username)
-          : null
-      }))
+      data: usersList
     });
   } catch (error) {
     logger.error('Users list error', error);
@@ -91,11 +84,7 @@ users.get('/search', authMiddleware, adminMiddleware, async c => {
 
     return c.json({
       success: true,
-      data: searchResults.map((u: any) => ({
-        ...u,
-        username: maskUsername(u.username),
-        email: maskEmail(u.email || '')
-      }))
+      data: searchResults
     });
   } catch (error) {
     logger.error('User search error', error);
@@ -1080,7 +1069,7 @@ users.get('/:userId/products', authMiddleware, adminMiddleware, async c => {
     return c.json({
       success: true,
       data: {
-        user: { id: user.id, username: maskUsername(user.username) },
+        user: { id: user.id, username: user.username },
         products: products.map((p: any) => ({
           ...p,
           urls: p.urls ? p.urls.split(',').map(maskUrl).join(',') : null

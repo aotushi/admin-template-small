@@ -14,6 +14,7 @@ export type ApiResponse<T> = ApiFailure | ApiSuccess<T> | T;
 
 export interface CurrentUser {
   admin_level?: null | string;
+  avatar?: string;
   created_at?: string;
   created_by?: null | number;
   email?: string;

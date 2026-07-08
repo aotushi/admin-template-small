@@ -9,7 +9,7 @@
  */
 
 import type { Env } from '../services/dataSources/types';
-import { maskUsername, maskUrl } from '../utils/mask';
+import { maskUrl } from '../utils/mask';
 
 interface DailyStatRow {
   date: string;
@@ -103,7 +103,7 @@ export async function handleDailyStatsHistory(
         appMap.set(appKey, {
           appId,
           appName: maskUrl(row.app_name || row.url),
-          username: maskUsername(row.username || ''),
+          username: row.username || '',
           urlDetails: []
         });
       }

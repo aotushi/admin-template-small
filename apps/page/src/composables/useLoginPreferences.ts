@@ -1,33 +1,19 @@
-import { computed, shallowRef, watch } from "vue";
+import { computed } from "vue";
 
-export type LoginLayout = "center" | "left" | "right";
-export type LoginLocale = "en-US" | "zh-CN";
-export type LoginTheme = "dark" | "light";
+import {
+  setAuthPageLayout,
+  setLocale,
+  setPrimaryColor,
+  themePrimaryOptions,
+  usePreferences,
+  type AppTheme,
+  type LoginLayout as PreferenceLoginLayout,
+  type LoginLocale as PreferenceLoginLocale,
+} from "@/composables/preferences";
 
-const STORAGE_PREFIX = "admin-backend-3-page-login";
-
-const colorOptions = [
-  {
-    label: "Blue",
-    value: "212 100% 45%",
-  },
-  {
-    label: "Violet",
-    value: "262 83% 58%",
-  },
-  {
-    label: "Sky",
-    value: "198 93% 48%",
-  },
-  {
-    label: "Emerald",
-    value: "154 59% 45%",
-  },
-  {
-    label: "Rose",
-    value: "346 77% 50%",
-  },
-] as const;
+export type LoginLayout = PreferenceLoginLayout;
+export type LoginLocale = PreferenceLoginLocale;
+export type LoginTheme = AppTheme;
 
 const layoutOptions: Array<{
   label: Record<LoginLocale, string>;
@@ -110,75 +96,24 @@ const enLabels: typeof zhLabels = {
   welcomeBack: "Welcome back",
 };
 
-function readStored<T extends string>(key: string, fallback: T, allowed: readonly T[]) {
-  const stored = window.localStorage.getItem(`${STORAGE_PREFIX}-${key}`);
-  return allowed.includes(stored as T) ? (stored as T) : fallback;
-}
-
 export function useLoginPreferences() {
-  const theme = shallowRef<LoginTheme>(readStored("theme", "dark", ["dark", "light"]));
-  const layout = shallowRef<LoginLayout>(
-    readStored("layout", "right", ["right", "left", "center"]),
-  );
-  const locale = shallowRef<LoginLocale>(readStored("locale", "zh-CN", ["zh-CN", "en-US"]));
-  const primaryColor = shallowRef(
-    window.localStorage.getItem(`${STORAGE_PREFIX}-primary`) || colorOptions[0].value,
-  );
+  const { isDark, preferences, theme, toggleTheme } = usePreferences();
+  const layout = computed(() => preferences.app.authPageLayout);
+  const locale = computed(() => preferences.app.locale);
+  const primaryColor = computed(() => preferences.theme.colorPrimary);
 
   const labels = computed(() => (locale.value === "zh-CN" ? zhLabels : enLabels));
-  const isDark = computed(() => theme.value === "dark");
-
-  watch(
-    theme,
-    (value) => {
-      window.localStorage.setItem(`${STORAGE_PREFIX}-theme`, value);
-    },
-    { immediate: true },
-  );
-
-  watch(
-    layout,
-    (value) => {
-      window.localStorage.setItem(`${STORAGE_PREFIX}-layout`, value);
-    },
-    { immediate: true },
-  );
-
-  watch(
-    locale,
-    (value) => {
-      window.localStorage.setItem(`${STORAGE_PREFIX}-locale`, value);
-    },
-    { immediate: true },
-  );
-
-  watch(
-    primaryColor,
-    (value) => {
-      document.documentElement.style.setProperty("--primary", value);
-      window.localStorage.setItem(`${STORAGE_PREFIX}-primary`, value);
-    },
-    { immediate: true },
-  );
 
   function setLayout(value: LoginLayout) {
-    layout.value = value;
-  }
-
-  function setPrimaryColor(value: string) {
-    primaryColor.value = value;
+    setAuthPageLayout(value);
   }
 
   function toggleLocale() {
-    locale.value = locale.value === "zh-CN" ? "en-US" : "zh-CN";
-  }
-
-  function toggleTheme() {
-    theme.value = theme.value === "dark" ? "light" : "dark";
+    setLocale(locale.value === "zh-CN" ? "en-US" : "zh-CN");
   }
 
   return {
-    colorOptions,
+    colorOptions: themePrimaryOptions,
     isDark,
     labels,
     layout,

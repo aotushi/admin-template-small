@@ -14,7 +14,7 @@
   --card: 0 0% 100%;
   --muted: 240 4.8% 95.9%;
   --muted-foreground: 240 3.8% 46.1%;
-  --primary: 213 93% 61%;
+  --primary: 212 100% 45%;
   --primary-foreground: 0 0% 98%;
   --success: 144 57% 58%;
   --secondary: 240 5% 96%;
@@ -28,6 +28,11 @@
   --input-placeholder: 217 10.6% 65%;
   --input-background: 0 0% 100%;
   --radius: 0.5rem;
+  --font-size-base: 16px;
+  --menu-font-size: calc(var(--font-size-base) * 0.875);
+  --sidebar: 0 0% 100%;
+  --sidebar-deep: 0 0% 100%;
+  --menu: var(--sidebar);
   --el-color-primary: hsl(var(--primary));
   --el-color-primary-light-3: hsl(var(--primary) / 78%);
   --el-color-primary-light-5: hsl(var(--primary) / 58%);
@@ -39,9 +44,9 @@
   color-scheme: light;
 }
 
-.app-dark {
+.dark {
   --background: 222.34deg 10.43% 12.27%;
-  --background-deep: 225 64% 2%;
+  --background-deep: 220deg 13.06% 9%;
   --foreground: 0 0% 95%;
   --card: 222.34deg 10.43% 12.27%;
   --muted: 240 3.7% 15.9%;
@@ -56,6 +61,9 @@
   --input: 0deg 0% 100% / 10%;
   --input-placeholder: 218deg 11% 65%;
   --input-background: 0deg 0% 100% / 5%;
+  --sidebar: 222.34deg 10.43% 12.27%;
+  --sidebar-deep: 220deg 13.06% 9%;
+  --menu: var(--sidebar);
   color-scheme: dark;
 }
 
@@ -90,8 +98,8 @@ a {
   font-weight: 500;
 }
 
-.app-dark .el-popper,
-.app-dark .el-dropdown__popper {
+.dark .el-popper,
+.dark .el-dropdown__popper {
   --el-bg-color-overlay: hsl(var(--card));
   --el-border-color-light: hsl(var(--border));
   --el-text-color-regular: hsl(var(--foreground));

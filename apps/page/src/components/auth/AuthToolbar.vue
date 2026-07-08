@@ -123,7 +123,7 @@ function chooseLayout(value: LoginLayout) {
         :class="{ 'is-active': option.value === primaryColor }"
         type="button"
         :aria-label="option.label"
-        :style="{ backgroundColor: `hsl(${option.value})` }"
+        :style="{ backgroundColor: option.value }"
         @click="chooseColor(option.value)"
       />
     </div>

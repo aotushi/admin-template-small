@@ -4,17 +4,18 @@ import { ElMessage } from "element-plus";
 import { useRoute, useRouter } from "vue-router";
 
 import { getApiErrorMessage } from "@/api/request";
-import { saveAuthSession } from "@/api/session";
 import AuthLoginForm from "@/components/auth/AuthLoginForm.vue";
 import AuthPageLayout from "@/components/auth/AuthPageLayout.vue";
 import AuthToolbar from "@/components/auth/AuthToolbar.vue";
 import { useLoginPreferences } from "@/composables/useLoginPreferences";
 import { useLoginMutation } from "@/queries/auth";
 import { resolvePostLoginRedirect } from "@/router/redirect";
+import { useAuthStore } from "@/stores/auth";
 import { quickAccounts } from "@/views/loginAccounts";
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 const loginMutation = useLoginMutation();
 const {
   colorOptions,
@@ -48,7 +49,7 @@ async function handleLogin(payload: { password: string; username: string; verifi
       username: payload.username,
     });
 
-    saveAuthSession(result);
+    authStore.setSession(result);
     ElMessage.success(labels.value.loginSuccess);
     await router.replace(resolvePostLoginRedirect(route.query.redirect));
   } catch (error) {

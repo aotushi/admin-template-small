@@ -38,7 +38,7 @@ defineSlots<{
 <style scoped>
 .admin-table-panel {
   display: flex;
-  min-height: min(680px, calc(100vh - 314px));
+  min-height: var(--admin-table-panel-min-height, min(680px, calc(100vh - 314px)));
   flex: 1;
   flex-direction: column;
   overflow: hidden;

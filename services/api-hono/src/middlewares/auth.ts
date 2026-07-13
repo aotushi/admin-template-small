@@ -1,5 +1,6 @@
 import { isSuperAdmin } from './permissions';
-import { verifyAuthToken } from '../services/tokens';
+import { DatabaseWrapper } from '../models/database';
+import { createUserPayload, verifyAuthToken } from '../services/tokens';
 
 /**
  * 获取 JWT 密钥
@@ -20,19 +21,37 @@ export const getJWTSecret = (env: any): string => {
  * 验证请求中的 Authorization header，解析并验证 JWT token
  */
 export const authMiddleware = async (c: any, next: any) => {
+  if (c.get('user')) {
+    await next();
+    return;
+  }
+
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return c.json({ error: '未授权访问' }, 401);
   }
 
   const token = authHeader.replace('Bearer ', '');
+  let payload;
+
   try {
-    const payload = await verifyAuthToken(token, getJWTSecret(c.env), 'access');
-    c.set('user', payload);
-    await next();
+    payload = await verifyAuthToken(token, getJWTSecret(c.env), 'access');
   } catch (error) {
     return c.json({ error: 'Token无效' }, 401);
   }
+
+  const db = new DatabaseWrapper(c.env.DB);
+  const currentUser = await db.get(
+    'SELECT id, username, role, admin_level, created_by FROM users WHERE id = ?',
+    [payload.id]
+  );
+
+  if (!currentUser) {
+    return c.json({ error: '用户不存在或已被删除' }, 401);
+  }
+
+  c.set('user', createUserPayload(currentUser));
+  await next();
 };
 
 /**

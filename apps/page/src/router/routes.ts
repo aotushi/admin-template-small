@@ -258,16 +258,37 @@ export const appRoutes: RouteRecordRaw[] = [
     },
     name: "CommonComponents",
     path: "/components",
-    redirect: "/components/table",
+    redirect: "/components/table/basic",
     children: [
       {
-        component: () => import("@/views/components/CommonComponentsView.vue"),
+        component: () => import("@/views/RouteGroupView.vue"),
         meta: {
           order: 10,
-          title: "表格组件",
+          title: "表格",
         },
         name: "CommonComponentsTable",
         path: "table",
+        redirect: "/components/table/basic",
+        children: [
+          {
+            component: () => import("@/views/components/CommonComponentsView.vue"),
+            meta: {
+              order: 10,
+              title: "基础表格",
+            },
+            name: "CommonComponentsTableBasic",
+            path: "basic",
+          },
+          {
+            component: () => import("@/views/components/CommonComponentsView.vue"),
+            meta: {
+              order: 20,
+              title: "搜索表格",
+            },
+            name: "CommonComponentsTableSearch",
+            path: "search",
+          },
+        ],
       },
       {
         component: () => import("@/views/components/CommonComponentsView.vue"),

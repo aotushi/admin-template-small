@@ -40,9 +40,21 @@ describe("route driven menu", () => {
     expect(menu.find((item) => item.title === "数据统计")?.children?.[0]?.path).toBe(
       "/statistics/daily",
     );
-    expect(
-      menu.find((item) => item.title === "公共组件")?.children?.map((item) => item.title),
-    ).toEqual(["表格组件", "查询表单", "树形筛选"]);
+    const componentMenu = menu.find((item) => item.title === "公共组件");
+    const tableMenu = componentMenu?.children?.find((item) => item.title === "表格");
+
+    expect(componentMenu?.path).toBe("/components");
+    expect(componentMenu?.children?.map((item) => item.title)).toEqual([
+      "表格",
+      "查询表单",
+      "树形筛选",
+    ]);
+    expect(tableMenu?.path).toBe("/components/table");
+    expect(tableMenu?.children?.map((item) => item.title)).toEqual(["基础表格", "搜索表格"]);
+    expect(tableMenu?.children?.map((item) => item.path)).toEqual([
+      "/components/table/basic",
+      "/components/table/search",
+    ]);
     expect(
       menu.find((item) => item.title === "系统管理")?.children?.map((item) => item.title),
     ).toEqual(["用户管理", "用户数据", "角色管理", "权限管理", "菜单管理"]);

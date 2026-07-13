@@ -17,8 +17,10 @@ export interface CurrentUser {
   avatar?: string;
   created_at?: string;
   created_by?: null | number;
+  department_id?: null | number;
   email?: string;
   id: number | string;
+  is_system?: boolean;
   role: string;
   username: string;
 }

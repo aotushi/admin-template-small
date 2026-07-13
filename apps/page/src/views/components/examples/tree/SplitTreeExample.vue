@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef } from "vue";
 
-import AdminTreePanel from "@/components/common/tree/AdminTreePanel.vue";
+import { AdminTreePanel } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
 interface TreeNode {
@@ -19,11 +19,7 @@ const nodes: TreeNode[] = [
     children: [
       {
         key: "table-panel",
-        label: "AdminTablePanel",
-      },
-      {
-        key: "pagination",
-        label: "AdminPagination",
+        label: "AdminDataTable",
       },
     ],
   },
@@ -34,6 +30,16 @@ const nodes: TreeNode[] = [
       {
         key: "search-panel",
         label: "AdminSearchPanel",
+      },
+    ],
+  },
+  {
+    key: "tree",
+    label: "树形组件",
+    children: [
+      {
+        key: "tree-panel",
+        label: "AdminTreePanel",
       },
     ],
   },
@@ -63,8 +69,8 @@ function findNodeByKey(tree: readonly TreeNode[], key: string): TreeNode | undef
     <div class="split-tree-example">
       <AdminTreePanel
         v-model:selected-key="selectedKey"
-        aria-label="左右分栏筛选"
         :nodes="nodes"
+        panel-label="左右分栏筛选"
         search-placeholder="搜索组件..."
       />
 

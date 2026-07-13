@@ -2,18 +2,14 @@
 import { computed, shallowRef } from "vue";
 import { Search } from "@element-plus/icons-vue";
 
-interface AdminTreeNode {
-  children?: AdminTreeNode[];
-  key: string;
-  label: string;
-}
+import type { AdminTreeNode } from "./types";
 
 const selectedKey = defineModel<string>("selectedKey", { required: true });
 
 const props = withDefaults(
   defineProps<{
-    ariaLabel: string;
     nodes: AdminTreeNode[];
+    panelLabel: string;
     searchPlaceholder?: string;
   }>(),
   {
@@ -42,26 +38,28 @@ function filterTreeNodes(tree: readonly AdminTreeNode[], keyword: string): Admin
     return [...tree];
   }
 
-  return tree
-    .map((node) => {
-      const children = node.children ? filterTreeNodes(node.children, normalizedKeyword) : [];
-      const matches = node.label.toLowerCase().includes(normalizedKeyword);
+  const visibleNodes: AdminTreeNode[] = [];
 
-      if (!matches && children.length === 0) {
-        return null;
-      }
+  for (const node of tree) {
+    const children = node.children ? filterTreeNodes(node.children, normalizedKeyword) : undefined;
+    const matches = node.label.toLowerCase().includes(normalizedKeyword);
 
-      return {
-        ...node,
-        children,
-      };
-    })
-    .filter((node): node is AdminTreeNode => Boolean(node));
+    if (!matches && !children?.length) {
+      continue;
+    }
+
+    visibleNodes.push({
+      ...node,
+      ...(children ? { children } : {}),
+    });
+  }
+
+  return visibleNodes;
 }
 </script>
 
 <template>
-  <aside class="admin-tree-panel" :aria-label="props.ariaLabel">
+  <aside class="admin-tree-panel" :aria-label="props.panelLabel">
     <ElInput
       v-model="searchKeyword"
       class="admin-tree-panel__search"

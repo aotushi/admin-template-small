@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from "vue";
 
-import AdminTreePanel from "@/components/common/tree/AdminTreePanel.vue";
+import { AdminTreePanel } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
 const selectedKey = shallowRef("system");
@@ -43,8 +43,8 @@ const nodes = [
     <div class="basic-tree-example">
       <AdminTreePanel
         v-model:selected-key="selectedKey"
-        aria-label="基础树形筛选"
         :nodes="nodes"
+        panel-label="基础树形筛选"
         search-placeholder="搜索节点..."
       />
     </div>

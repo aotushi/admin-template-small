@@ -2,8 +2,13 @@
 import { computed } from "vue";
 import { ArrowUp } from "@element-plus/icons-vue";
 
-import AdminSearchPanel from "@/components/common/form/AdminSearchPanel.vue";
-import type { UserCreatedRange, UserFilters, UserStatusFilter } from "@/views/system/users/types";
+import { AdminSearchPanel } from "@/components/common";
+import type {
+  UserCreatedRange,
+  UserFilters,
+  UserRoleFilter,
+  UserStatusFilter,
+} from "@/views/system/users/types";
 
 const props = defineProps<{
   filters: UserFilters;
@@ -22,6 +27,12 @@ const statusOptions: Array<{ label: string; value: UserStatusFilter }> = [
   { label: "启用", value: "enabled" },
   { label: "禁用", value: "disabled" },
 ];
+const roleOptions: Array<{ label: string; value: UserRoleFilter }> = [
+  { label: "全部角色", value: "all" },
+  { label: "超级管理员", value: "super" },
+  { label: "管理员", value: "admin" },
+  { label: "普通用户", value: "user" },
+];
 const visibleStatus = computed(() =>
   props.filters.status === "all" ? undefined : props.filters.status,
 );
@@ -38,8 +49,8 @@ function updateStatus(status?: UserStatusFilter) {
   emit("updateFilters", { status: status ?? "all" });
 }
 
-function updateRemark(remark: string) {
-  emit("updateFilters", { remark });
+function updateRole(role?: UserRoleFilter) {
+  emit("updateFilters", { role: role ?? "all" });
 }
 
 function updateCreatedRange(createdRange: null | string[]) {
@@ -53,7 +64,7 @@ function updateCreatedRange(createdRange: null | string[]) {
 </script>
 
 <template>
-  <AdminSearchPanel aria-label="用户筛选">
+  <AdminSearchPanel panel-label="用户筛选">
     <ElFormItem label="用户名">
       <ElInput
         clearable
@@ -93,15 +104,21 @@ function updateCreatedRange(createdRange: null | string[]) {
       </ElSelect>
     </ElFormItem>
 
-    <ElFormItem label="备注">
-      <ElInput
+    <ElFormItem label="角色">
+      <ElSelect
         clearable
         :disabled="props.loading"
-        :model-value="props.filters.remark"
-        placeholder="请输入"
-        @keyup.enter="emit('query')"
-        @update:model-value="updateRemark"
-      />
+        :model-value="props.filters.role === 'all' ? undefined : props.filters.role"
+        placeholder="请选择"
+        @update:model-value="updateRole"
+      >
+        <ElOption
+          v-for="option in roleOptions"
+          :key="option.value"
+          :label="option.label"
+          :value="option.value"
+        />
+      </ElSelect>
     </ElFormItem>
 
     <ElFormItem class="user-search-panel__date" label="创建时间">

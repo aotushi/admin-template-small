@@ -1,42 +1,63 @@
 <script setup lang="ts">
 import { computed, reactive, shallowRef, watch } from "vue";
 import { ElMessage } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
 
 import type { AdminUserListItem } from "@/api/users";
 import { getApiErrorMessage } from "@/api/request";
-import { useUsersListQuery } from "@/queries/users";
+import { AdminDataTable } from "@/components/common";
+import { useDepartmentsTreeQuery, useUsersListQuery } from "@/queries/users";
 import UserDepartmentPanel from "./components/UserDepartmentPanel.vue";
 import UserSearchPanel from "./components/UserSearchPanel.vue";
-import UserTable from "./components/UserTable.vue";
 import type { UserFilters } from "./types";
-import { createDefaultUserFilters, filterUsers, paginateUsers } from "./userFilters";
+import { ALL_DEPARTMENTS_KEY, getSelectedDepartmentIds } from "./departmentTree";
+import {
+  createDefaultUserFilters,
+  filterUsers,
+  getUserRoleLabel,
+  getUserRoleTagType,
+  getUserStatusLabel,
+  paginateUsers,
+} from "./userFilters";
+import { userTableColumns } from "./userTableColumns";
 
 const usersQuery = useUsersListQuery();
+const departmentsQuery = useDepartmentsTreeQuery();
 const filters = reactive<UserFilters>(createDefaultUserFilters());
 const currentPage = shallowRef(1);
 const pageSize = shallowRef(10);
-const selectedDepartmentKey = shallowRef("jewelry");
+const selectedDepartmentKey = shallowRef(ALL_DEPARTMENTS_KEY);
 const selectedUsers = shallowRef<AdminUserListItem[]>([]);
 const searchPanelVisible = shallowRef(true);
 
 const users = computed(() => usersQuery.data.value ?? []);
-const filteredUsers = computed(() => filterUsers(users.value, filters));
+const departments = computed(() => departmentsQuery.data.value ?? []);
+const selectedDepartmentIds = computed(() =>
+  getSelectedDepartmentIds(departments.value, selectedDepartmentKey.value),
+);
+const filteredUsers = computed(() =>
+  filterUsers(users.value, filters, selectedDepartmentIds.value),
+);
 const pagedUsers = computed(() =>
   paginateUsers(filteredUsers.value, {
     page: currentPage.value,
     pageSize: pageSize.value,
   }),
 );
-const isFetching = computed(() => usersQuery.asyncStatus.value === "loading");
+const isFetching = computed(
+  () =>
+    usersQuery.asyncStatus.value === "loading" || departmentsQuery.asyncStatus.value === "loading",
+);
 const errorMessage = computed(() =>
   usersQuery.error.value ? getApiErrorMessage(usersQuery.error.value) : "",
+);
+const departmentErrorMessage = computed(() =>
+  departmentsQuery.error.value ? getApiErrorMessage(departmentsQuery.error.value) : "",
 );
 
 watch(
   () => [
-    filters.adminLevel,
     filters.createdRange.join("|"),
-    filters.remark,
     filters.role,
     filters.status,
     filters.userId,
@@ -51,6 +72,10 @@ watch(pageSize, () => {
   currentPage.value = 1;
 });
 
+watch(selectedDepartmentKey, () => {
+  currentPage.value = 1;
+});
+
 function updateFilters(nextFilters: Partial<UserFilters>) {
   Object.assign(filters, nextFilters);
 }
@@ -61,6 +86,7 @@ function resetFilters() {
 
 function refreshUsers() {
   void usersQuery.refetch();
+  void departmentsQuery.refetch();
 }
 
 function handleQuery() {
@@ -82,7 +108,11 @@ function showDeferredFeature(featureName: string) {
 
 <template>
   <main class="user-management-page">
-    <UserDepartmentPanel v-model:selected-key="selectedDepartmentKey" />
+    <UserDepartmentPanel
+      v-model:selected-key="selectedDepartmentKey"
+      :departments="departments"
+      :loading="departmentsQuery.asyncStatus.value === 'loading'"
+    />
 
     <section class="user-management-page__content">
       <UserSearchPanel
@@ -96,6 +126,15 @@ function showDeferredFeature(featureName: string) {
       />
 
       <ElAlert
+        v-if="departmentErrorMessage"
+        :closable="false"
+        :description="departmentErrorMessage"
+        show-icon
+        title="部门数据加载失败"
+        type="error"
+      />
+
+      <ElAlert
         v-if="errorMessage"
         :closable="false"
         :description="errorMessage"
@@ -104,20 +143,64 @@ function showDeferredFeature(featureName: string) {
         type="error"
       />
 
-      <UserTable
+      <AdminDataTable
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
+        :columns="userTableColumns"
+        empty-text="暂无用户数据"
         :loading="isFetching"
+        :page-sizes="[10, 20, 50]"
+        panel-label="用户列表"
+        row-key="id"
         :rows="pagedUsers"
         :search-panel-visible="searchPanelVisible"
+        selectable
+        show-density-tool
+        show-fullscreen-tool
+        show-refresh-tool
+        show-search-tool
+        title="用户列表"
         :total="filteredUsers.length"
-        @add-user="showDeferredFeature('新增用户')"
         @refresh="refreshUsers"
         @selection-change="handleSelectionChange"
-        @toggle-density="showDeferredFeature('表格密度')"
-        @toggle-fullscreen="showDeferredFeature('表格全屏')"
         @toggle-search="toggleSearchPanel"
-      />
+      >
+        <template #toolbarActions>
+          <ElButton :icon="Plus" type="primary" @click="showDeferredFeature('新增用户')">
+            新增用户名
+          </ElButton>
+        </template>
+
+        <template #cell-username="{ row }: { row: AdminUserListItem }">
+          <span class="user-management-page__username">
+            <span>{{ row.username }}</span>
+            <ElTag v-if="row.is_system" effect="plain" size="small" type="danger">系统</ElTag>
+          </span>
+        </template>
+
+        <template #cell-status>
+          <ElTag effect="light" type="success">{{ getUserStatusLabel() }}</ElTag>
+        </template>
+
+        <template #cell-role="{ row }: { row: AdminUserListItem }">
+          <ElTag :type="getUserRoleTagType(row)" effect="light">
+            {{ getUserRoleLabel(row) }}
+          </ElTag>
+        </template>
+
+        <template #cell-actions>
+          <ElTooltip content="编辑功能将在 CRUD 阶段接入" placement="top">
+            <span>
+              <ElButton disabled link type="primary">编辑</ElButton>
+            </span>
+          </ElTooltip>
+          <ElTooltip content="删除功能将在 CRUD 阶段接入" placement="top">
+            <span>
+              <ElButton disabled link type="danger">删除</ElButton>
+            </span>
+          </ElTooltip>
+        </template>
+      </AdminDataTable>
     </section>
   </main>
 </template>
@@ -139,6 +222,13 @@ function showDeferredFeature(featureName: string) {
   min-height: calc(100vh - 88px);
   flex-direction: column;
   gap: 12px;
+}
+
+.user-management-page__username {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .user-management-page :deep(.el-input__wrapper),

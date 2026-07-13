@@ -10,6 +10,11 @@ export interface UserPayload {
   created_by?: number | null;
 }
 
+export interface ManagedUserPayload {
+  id: number;
+  is_system?: boolean | number | null;
+}
+
 /**
  * 检查是否为总管理员
  */
@@ -61,12 +66,11 @@ export const canManageUser = (
  * 规则：
  * 1. 只有总管理员可以删除
  * 2. 不能删除自己
- * 3. 不能删除系统 vben 账户
+ * 3. 不能删除受保护的系统账户
  */
 export const canDeleteUser = (
   currentUser: UserPayload,
-  targetUserId: number,
-  targetUsername: string
+  targetUser: ManagedUserPayload
 ): boolean => {
   // 只有总管理员可以删除
   if (!isSuperAdmin(currentUser)) {
@@ -74,12 +78,12 @@ export const canDeleteUser = (
   }
 
   // 不能删除自己
-  if (currentUser.id === targetUserId) {
+  if (currentUser.id === targetUser.id) {
     return false;
   }
 
-  // 不能删除系统 vben 账户
-  if (targetUsername === 'vben') {
+  // 不能删除受保护的系统账户
+  if (Boolean(targetUser.is_system)) {
     return false;
   }
 

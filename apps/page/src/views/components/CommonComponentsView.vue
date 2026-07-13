@@ -5,18 +5,20 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 
 import FormExamplesView from "@/views/components/examples/form/FormExamplesView.vue";
-import TableExamplesView from "@/views/components/examples/table/TableExamplesView.vue";
+import BasicTableExample from "@/views/components/examples/table/BasicTableExample.vue";
+import SearchTableExample from "@/views/components/examples/table/SearchTableExample.vue";
 import TreeExamplesView from "@/views/components/examples/tree/TreeExamplesView.vue";
 
 const route = useRoute();
 
 const examples: Record<string, Component> = {
   CommonComponentsForm: FormExamplesView,
-  CommonComponentsTable: TableExamplesView,
+  CommonComponentsTableBasic: BasicTableExample,
+  CommonComponentsTableSearch: SearchTableExample,
   CommonComponentsTree: TreeExamplesView,
 };
 
-const currentExamples = computed(() => examples[String(route.name)] ?? TableExamplesView);
+const currentExamples = computed(() => examples[String(route.name)] ?? BasicTableExample);
 </script>
 
 <template>

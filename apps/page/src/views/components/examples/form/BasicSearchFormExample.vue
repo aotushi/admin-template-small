@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive } from "vue";
 
-import AdminSearchPanel from "@/components/common/form/AdminSearchPanel.vue";
+import { AdminSearchPanel } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
 const filters = reactive({
@@ -19,7 +19,7 @@ function handleReset() {
 
 <template>
   <CommonExampleCard title="基础查询表单">
-    <AdminSearchPanel aria-label="基础查询表单" label-width="88px">
+    <AdminSearchPanel label-width="88px" panel-label="基础查询表单">
       <ElFormItem label="组件名称">
         <ElInput v-model="filters.keyword" clearable placeholder="请输入" />
       </ElFormItem>

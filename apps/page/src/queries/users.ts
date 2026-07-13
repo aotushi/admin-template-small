@@ -1,8 +1,9 @@
 import { defineQueryOptions, useQuery } from "@pinia/colada";
 
-import { getUsersApi } from "@/api/users";
+import { getDepartmentsTreeApi, getUsersApi } from "@/api/users";
 
 export const USERS_QUERY_KEYS = {
+  departments: () => [...USERS_QUERY_KEYS.root, "departments"] as const,
   list: () => [...USERS_QUERY_KEYS.root, "list"] as const,
   root: ["users"] as const,
 };
@@ -14,4 +15,13 @@ export const usersListQueryOptions = defineQueryOptions(() => ({
 
 export function useUsersListQuery() {
   return useQuery(usersListQueryOptions);
+}
+
+export const departmentsTreeQueryOptions = defineQueryOptions(() => ({
+  key: USERS_QUERY_KEYS.departments(),
+  query: getDepartmentsTreeApi,
+}));
+
+export function useDepartmentsTreeQuery() {
+  return useQuery(departmentsTreeQueryOptions);
 }

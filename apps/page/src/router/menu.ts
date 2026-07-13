@@ -30,7 +30,7 @@ function createMenuItem(
 ): AppMenuItem {
   const routePath = resolveRoutePath(route, parentPath);
   const children = route.children ? createMenuItems(route.children, user, routePath) : [];
-  const path = resolveMenuPath(route, routePath);
+  const path = children.length ? routePath : resolveMenuPath(route, routePath);
 
   return {
     ...(children.length ? { children } : {}),

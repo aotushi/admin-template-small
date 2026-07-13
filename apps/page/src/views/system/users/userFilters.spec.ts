@@ -8,6 +8,9 @@ const users: AdminUserListItem[] = [
     admin_level: "super",
     created_at: "2026-01-01T08:00:00.000Z",
     created_by_username: null,
+    department_id: null,
+    department_name: null,
+    department_parent_name: null,
     email: "vben@example.com",
     id: 1,
     role: "admin",
@@ -17,6 +20,9 @@ const users: AdminUserListItem[] = [
     admin_level: "sub",
     created_at: "2026-01-02T08:00:00.000Z",
     created_by_username: "vben",
+    department_id: 21,
+    department_name: "信息化运维组",
+    department_parent_name: "技术部",
     email: "admin@example.com",
     id: 2,
     role: "admin",
@@ -26,6 +32,9 @@ const users: AdminUserListItem[] = [
     admin_level: null,
     created_at: "2026-01-03T08:00:00.000Z",
     created_by_username: "admin",
+    department_id: 9,
+    department_name: "客户服务组",
+    department_parent_name: "销售部",
     email: "jack@example.com",
     id: 3,
     role: "user",
@@ -34,14 +43,20 @@ const users: AdminUserListItem[] = [
 ];
 
 describe("userFilters", () => {
-  it("filters by role and admin level", () => {
+  it("distinguishes super administrators from regular administrators", () => {
     expect(
       filterUsers(users, {
         ...createDefaultUserFilters(),
-        adminLevel: "sub",
         role: "admin",
       }),
     ).toEqual([users[1]]);
+
+    expect(
+      filterUsers(users, {
+        ...createDefaultUserFilters(),
+        role: "super",
+      }),
+    ).toEqual([users[0]]);
   });
 
   it("matches username against username and email", () => {
@@ -53,15 +68,19 @@ describe("userFilters", () => {
     ).toEqual([users[1]]);
   });
 
-  it("filters by user id, remark, and created range", () => {
+  it("filters by user id and created range", () => {
     expect(
       filterUsers(users, {
         ...createDefaultUserFilters(),
         createdRange: ["2026-01-02", "2026-01-03"],
-        remark: "普通",
         userId: "3",
       }),
     ).toEqual([users[2]]);
+  });
+
+  it("filters users by selected department ids", () => {
+    expect(filterUsers(users, createDefaultUserFilters(), [9])).toEqual([users[2]]);
+    expect(filterUsers(users, createDefaultUserFilters(), [20, 21])).toEqual([users[1]]);
   });
 
   it("paginates a filtered result without mutating source data", () => {

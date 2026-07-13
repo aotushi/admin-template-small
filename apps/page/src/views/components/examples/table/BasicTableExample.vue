@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { shallowRef } from "vue";
-import { Grid, Refresh } from "@element-plus/icons-vue";
 
-import AdminPagination from "@/components/common/table/AdminPagination.vue";
-import AdminTableActionButton from "@/components/common/table/AdminTableActionButton.vue";
-import AdminTablePanel from "@/components/common/table/AdminTablePanel.vue";
+import { AdminDataTable } from "@/components/common";
+import type { AdminTableColumn } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
 interface TableRow {
@@ -17,64 +15,51 @@ interface TableRow {
 const currentPage = shallowRef(1);
 const pageSize = shallowRef(10);
 
+const columns = [
+  { field: "component", key: "component", label: "组件名称", minWidth: 180 },
+  { field: "owner", key: "owner", label: "归属分类", minWidth: 140 },
+  { key: "status", label: "状态", minWidth: 120, slot: "status" },
+  { field: "updatedAt", key: "updatedAt", label: "更新时间", minWidth: 140 },
+] satisfies AdminTableColumn<TableRow>[];
+
 const rows: TableRow[] = [
   {
-    component: "AdminTablePanel",
-    owner: "系统管理",
+    component: "AdminDataTable",
+    owner: "表格",
     status: "已接入",
-    updatedAt: "2026-07-08",
+    updatedAt: "2026-07-13",
   },
   {
-    component: "AdminTableActionButton",
-    owner: "系统管理",
+    component: "AdminSearchPanel",
+    owner: "表单",
     status: "已接入",
-    updatedAt: "2026-07-08",
+    updatedAt: "2026-07-13",
   },
   {
-    component: "AdminPagination",
-    owner: "系统管理",
+    component: "AdminTreePanel",
+    owner: "树形筛选",
     status: "已接入",
-    updatedAt: "2026-07-08",
+    updatedAt: "2026-07-13",
   },
 ];
 </script>
 
 <template>
   <CommonExampleCard title="基础表格">
-    <AdminTablePanel title="基础表格">
-      <template #actions>
-        <AdminTableActionButton label="刷新">
-          <Refresh />
-        </AdminTableActionButton>
-        <AdminTableActionButton active label="密度">
-          <Grid />
-        </AdminTableActionButton>
+    <AdminDataTable
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :columns="columns"
+      min-height="360px"
+      :rows="rows"
+      show-density-tool
+      show-fullscreen-tool
+      title="基础表格"
+      :total="rows.length"
+    >
+      <template #cell-status="{ row }: { row: TableRow }">
+        <ElTag effect="light" type="success">{{ row.status }}</ElTag>
       </template>
-
-      <ElTable :data="rows" row-key="component">
-        <ElTableColumn label="组件名称" min-width="180" prop="component" />
-        <ElTableColumn label="归属模块" min-width="140" prop="owner" />
-        <ElTableColumn label="状态" min-width="120" prop="status">
-          <template #default="{ row }: { row: TableRow }">
-            <ElTag effect="light" type="success">{{ row.status }}</ElTag>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="更新时间" min-width="140" prop="updatedAt" />
-      </ElTable>
-
-      <template #footer>
-        <AdminPagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :total="rows.length"
-        />
-      </template>
-    </AdminTablePanel>
+    </AdminDataTable>
   </CommonExampleCard>
 </template>
-
-<style scoped>
-:deep(.admin-table-panel) {
-  min-height: 360px;
-}
-</style>

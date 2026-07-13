@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const props = withDefaults(
   defineProps<{
-    ariaLabel: string;
     labelWidth?: string;
+    panelLabel: string;
   }>(),
   {
     labelWidth: "72px",
@@ -15,7 +15,7 @@ defineSlots<{
 </script>
 
 <template>
-  <section class="admin-search-panel" :aria-label="props.ariaLabel">
+  <section class="admin-search-panel" :aria-label="props.panelLabel">
     <ElForm class="admin-search-panel__form" label-position="right" :label-width="props.labelWidth">
       <slot />
     </ElForm>

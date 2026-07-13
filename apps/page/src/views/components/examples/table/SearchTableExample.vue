@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, shallowRef } from "vue";
-import { Grid, Refresh, Search } from "@element-plus/icons-vue";
+import { computed, reactive, shallowRef, watch } from "vue";
 
-import AdminSearchPanel from "@/components/common/form/AdminSearchPanel.vue";
-import AdminPagination from "@/components/common/table/AdminPagination.vue";
-import AdminTableActionButton from "@/components/common/table/AdminTableActionButton.vue";
-import AdminTablePanel from "@/components/common/table/AdminTablePanel.vue";
+import { AdminDataTable, AdminSearchPanel } from "@/components/common";
+import type { AdminTableColumn } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
 interface TableRow {
@@ -17,6 +14,14 @@ interface TableRow {
 
 const currentPage = shallowRef(1);
 const pageSize = shallowRef(10);
+const searchPanelVisible = shallowRef(true);
+
+const columns = [
+  { field: "component", key: "component", label: "组件名称", minWidth: 180 },
+  { field: "type", key: "type", label: "类型", minWidth: 140 },
+  { field: "scene", key: "scene", label: "使用场景", minWidth: 220 },
+  { key: "status", label: "接入状态", minWidth: 120, slot: "status" },
+] satisfies AdminTableColumn<TableRow>[];
 
 const filters = reactive({
   keyword: "",
@@ -25,22 +30,22 @@ const filters = reactive({
 
 const rows: TableRow[] = [
   {
+    component: "AdminDataTable",
+    scene: "用户管理 / 列表区",
+    status: "ready",
+    type: "生产表格",
+  },
+  {
     component: "AdminSearchPanel",
     scene: "用户管理 / 筛选区",
     status: "ready",
     type: "查询表单",
   },
   {
-    component: "AdminTablePanel",
-    scene: "用户管理 / 列表区",
+    component: "AdminTreePanel",
+    scene: "用户管理 / 部门筛选",
     status: "ready",
-    type: "表格容器",
-  },
-  {
-    component: "AdminPagination",
-    scene: "用户管理 / 列表区",
-    status: "ready",
-    type: "分页",
+    type: "树形筛选",
   },
   {
     component: "ColumnSetting",
@@ -63,6 +68,14 @@ const visibleRows = computed(() => {
     return keywordMatched && statusMatched;
   });
 });
+const pagedRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return visibleRows.value.slice(start, start + pageSize.value);
+});
+
+watch([() => filters.keyword, () => filters.status, pageSize], () => {
+  currentPage.value = 1;
+});
 
 function handleReset() {
   filters.keyword = "";
@@ -73,7 +86,7 @@ function handleReset() {
 <template>
   <CommonExampleCard title="搜索表格">
     <div class="search-table-example">
-      <AdminSearchPanel aria-label="搜索表格筛选" label-width="88px">
+      <AdminSearchPanel v-show="searchPanelVisible" label-width="88px" panel-label="搜索表格筛选">
         <ElFormItem label="组件名称">
           <ElInput v-model="filters.keyword" clearable placeholder="请输入" />
         </ElFormItem>
@@ -87,46 +100,30 @@ function handleReset() {
 
         <ElFormItem class="search-table-example__actions" label=" ">
           <ElButton @click="handleReset">重 置</ElButton>
-          <ElButton type="primary">
-            <ElIcon>
-              <Search />
-            </ElIcon>
-            搜 索
-          </ElButton>
+          <ElButton type="primary">搜 索</ElButton>
         </ElFormItem>
       </AdminSearchPanel>
 
-      <AdminTablePanel title="搜索结果">
-        <template #actions>
-          <AdminTableActionButton label="刷新">
-            <Refresh />
-          </AdminTableActionButton>
-          <AdminTableActionButton label="密度">
-            <Grid />
-          </AdminTableActionButton>
+      <AdminDataTable
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :columns="columns"
+        min-height="380px"
+        :rows="pagedRows"
+        :search-panel-visible="searchPanelVisible"
+        show-density-tool
+        show-fullscreen-tool
+        show-search-tool
+        title="搜索结果"
+        :total="visibleRows.length"
+        @toggle-search="searchPanelVisible = !searchPanelVisible"
+      >
+        <template #cell-status="{ row }: { row: TableRow }">
+          <ElTag :type="row.status === 'ready' ? 'success' : 'info'" effect="light">
+            {{ row.status === "ready" ? "已接入" : "规划中" }}
+          </ElTag>
         </template>
-
-        <ElTable :data="visibleRows" row-key="component">
-          <ElTableColumn label="组件名称" min-width="180" prop="component" />
-          <ElTableColumn label="类型" min-width="140" prop="type" />
-          <ElTableColumn label="使用场景" min-width="220" prop="scene" />
-          <ElTableColumn label="接入状态" min-width="120" prop="status">
-            <template #default="{ row }: { row: TableRow }">
-              <ElTag :type="row.status === 'ready' ? 'success' : 'info'" effect="light">
-                {{ row.status === "ready" ? "已接入" : "规划中" }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
-        </ElTable>
-
-        <template #footer>
-          <AdminPagination
-            v-model:current-page="currentPage"
-            v-model:page-size="pageSize"
-            :total="visibleRows.length"
-          />
-        </template>
-      </AdminTablePanel>
+      </AdminDataTable>
     </div>
   </CommonExampleCard>
 </template>
@@ -141,9 +138,5 @@ function handleReset() {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.search-table-example :deep(.admin-table-panel) {
-  min-height: 380px;
 }
 </style>

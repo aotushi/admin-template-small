@@ -3,9 +3,7 @@ import type { UserFilters, UserPagination } from "@/views/system/users/types";
 
 export function createDefaultUserFilters(): UserFilters {
   return {
-    adminLevel: "all",
     createdRange: [],
-    remark: "",
     role: "all",
     status: "all",
     userId: "",
@@ -13,20 +11,23 @@ export function createDefaultUserFilters(): UserFilters {
   };
 }
 
-export function filterUsers(users: readonly AdminUserListItem[], filters: UserFilters) {
+export function filterUsers(
+  users: readonly AdminUserListItem[],
+  filters: UserFilters,
+  departmentIds?: readonly number[],
+) {
   const username = normalizeSearchText(filters.username);
   const userId = normalizeSearchText(filters.userId);
-  const remark = normalizeSearchText(filters.remark);
+  const allowedDepartmentIds = departmentIds ? new Set(departmentIds.map(String)) : undefined;
 
   return users.filter((user) => {
     return (
       matchesUsername(user, username) &&
       matchesUserId(user, userId) &&
+      matchesDepartment(user, allowedDepartmentIds) &&
       matchesStatus(user, filters.status) &&
-      matchesRemark(user, remark) &&
       matchesCreatedRange(user, filters.createdRange) &&
-      matchesRole(user, filters.role) &&
-      matchesAdminLevel(user, filters.adminLevel)
+      matchesRole(user, filters.role)
     );
   });
 }
@@ -47,16 +48,24 @@ export function getUserStatusLabel() {
   return "启用";
 }
 
-export function getUserRemark(user: AdminUserListItem) {
+export function getUserRoleLabel(user: AdminUserListItem) {
   if (user.role === "admin" && user.admin_level === "super") {
-    return "Super 管理员";
+    return "超级管理员";
   }
 
   if (user.role === "admin") {
-    return "Admin 管理员";
+    return "管理员";
   }
 
   return "普通用户";
+}
+
+export function getUserRoleTagType(user: AdminUserListItem): "danger" | "info" | "warning" {
+  if (user.role === "admin" && user.admin_level === "super") {
+    return "danger";
+  }
+
+  return user.role === "admin" ? "warning" : "info";
 }
 
 function matchesUsername(user: AdminUserListItem, username: string) {
@@ -77,16 +86,8 @@ function matchesUserId(user: AdminUserListItem, userId: string) {
   return String(user.id).includes(userId);
 }
 
-function matchesStatus(user: AdminUserListItem, status: UserFilters["status"]) {
-  return status === "all" || getUserStatus(user) === status;
-}
-
-function matchesRemark(user: AdminUserListItem, remark: string) {
-  if (!remark) {
-    return true;
-  }
-
-  return normalizeSearchText(getUserRemark(user)).includes(remark);
+function matchesStatus(_user: AdminUserListItem, status: UserFilters["status"]) {
+  return status === "all" || getUserStatus() === status;
 }
 
 function matchesCreatedRange(user: AdminUserListItem, createdRange: UserFilters["createdRange"]) {
@@ -106,19 +107,23 @@ function matchesCreatedRange(user: AdminUserListItem, createdRange: UserFilters[
 }
 
 function matchesRole(user: AdminUserListItem, role: UserFilters["role"]) {
-  return role === "all" || user.role === role;
-}
-
-function matchesAdminLevel(user: AdminUserListItem, adminLevel: UserFilters["adminLevel"]) {
-  if (adminLevel === "all") {
+  if (role === "all") {
     return true;
   }
 
-  if (adminLevel === "none") {
-    return !user.admin_level;
+  if (role === "super") {
+    return user.role === "admin" && user.admin_level === "super";
   }
 
-  return user.admin_level === adminLevel;
+  if (role === "admin") {
+    return user.role === "admin" && user.admin_level !== "super";
+  }
+
+  return user.role === "user";
+}
+
+function matchesDepartment(user: AdminUserListItem, allowedDepartmentIds?: ReadonlySet<string>) {
+  return !allowedDepartmentIds || allowedDepartmentIds.has(String(user.department_id));
 }
 
 function normalizeSearchText(value: string) {

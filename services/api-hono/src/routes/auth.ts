@@ -4,6 +4,7 @@ import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import { getJWTSecret } from '../middlewares/auth';
 import { logger } from '../utils/logger';
+import { isSuperAdmin } from '../middlewares/permissions';
 import {
   createAuthTokenPair,
   createUserPayload,
@@ -30,7 +31,7 @@ auth.post('/login', async c => {
     // 查找用户
     const dbStart = Date.now();
     const user = await db.get(
-      'SELECT id, username, password, role, email, admin_level, created_by FROM users WHERE username = ?',
+      'SELECT id, username, password, role, email, admin_level, department_id, is_system, created_by FROM users WHERE username = ?',
       [username]
     );
     timings.dbQuery = Date.now() - dbStart;
@@ -65,6 +66,8 @@ auth.post('/login', async c => {
           role: user.role,
           email: user.email || '',
           admin_level: user.admin_level,
+          department_id: user.department_id,
+          is_system: Boolean(user.is_system),
           created_by: user.created_by
         },
         _timings: timings // 临时返回性能数据
@@ -89,7 +92,7 @@ auth.post('/refresh', async c => {
     const payload = await verifyAuthToken(refreshToken, jwtSecret, 'refresh');
     const db = new DatabaseWrapper(c.env.DB);
     const user = await db.get(
-      'SELECT id, username, role, email, admin_level, created_by FROM users WHERE id = ?',
+      'SELECT id, username, role, email, admin_level, department_id, is_system, created_by FROM users WHERE id = ?',
       [payload.id]
     );
 
@@ -132,6 +135,14 @@ auth.post('/register', async c => {
       return c.json({ error: '用户名和密码不能为空' }, 400);
     }
 
+    if (!['admin', 'user'].includes(role)) {
+      return c.json({ error: '用户角色无效' }, 400);
+    }
+
+    if (role === 'admin' && !isSuperAdmin(payload)) {
+      return c.json({ error: '只有总管理员可以授予管理员权限' }, 403);
+    }
+
     const db = new DatabaseWrapper(c.env.DB);
 
     // 检查用户是否已存在
@@ -148,8 +159,8 @@ auth.post('/register', async c => {
 
     // 插入新用户
     const result = await db.run(
-      'INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, role, email]
+      'INSERT INTO users (username, password, role, email, admin_level, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, hashedPassword, role, email, role === 'admin' ? 'sub' : null, payload.id]
     );
 
     return c.json({
@@ -180,7 +191,7 @@ auth.get('/profile', async c => {
 
     const db = new DatabaseWrapper(c.env.DB);
     const user = await db.get(
-      'SELECT id, username, role, email, admin_level, created_by, created_at FROM users WHERE id = ?',
+      'SELECT id, username, role, email, admin_level, department_id, is_system, created_by, created_at FROM users WHERE id = ?',
       [payload.id]
     );
 

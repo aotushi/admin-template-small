@@ -30,11 +30,17 @@ users.get('/list', authMiddleware, adminMiddleware, async c => {
         u.email,
         u.role,
         u.admin_level,
+        u.department_id,
+        u.is_system,
         u.created_by,
         u.created_at,
-        creator.username as created_by_username
+        creator.username as created_by_username,
+        department.name as department_name,
+        parent_department.name as department_parent_name
       FROM users u
       LEFT JOIN users creator ON u.created_by = creator.id
+      LEFT JOIN departments department ON u.department_id = department.id
+      LEFT JOIN departments parent_department ON department.parent_id = parent_department.id
     `;
 
     const params: any[] = [];
@@ -101,6 +107,7 @@ users.post('/create', authMiddleware, adminMiddleware, async c => {
       password,
       role = 'user',
       admin_level,
+      department_id,
       assigned_to_admin,
       products
     } = await c.req.json();
@@ -121,14 +128,48 @@ users.post('/create', authMiddleware, adminMiddleware, async c => {
       return c.json({ error: '密码至少6个字符' }, 400);
     }
 
-    // 权限检查：只有总管理员可以创建子管理员
-    if (admin_level === 'sub') {
-      if (!isSuperAdmin(currentUser)) {
-        return c.json({ error: '只有总管理员可以创建子管理员' }, 403);
-      }
+    if (!['admin', 'user'].includes(role)) {
+      return c.json({ error: '用户角色无效' }, 400);
+    }
+
+    if (admin_level !== undefined && !['super', 'sub', null].includes(admin_level)) {
+      return c.json({ error: '管理员级别无效' }, 400);
+    }
+
+    const requestedAdminLevel =
+      admin_level === 'super' || admin_level === 'sub'
+        ? admin_level
+        : role === 'admin'
+          ? 'sub'
+          : null;
+
+    // 只有总管理员可以授予管理员或总管理员权限。
+    if (requestedAdminLevel && !isSuperAdmin(currentUser)) {
+      return c.json({ error: '只有总管理员可以授予管理员权限' }, 403);
     }
 
     const db = new DatabaseWrapper(c.env.DB);
+
+    let resolvedDepartmentId: number | null = null;
+    if (requestedAdminLevel !== 'super' && department_id !== undefined && department_id !== null) {
+      const parsedDepartmentId = Number(department_id);
+      if (!Number.isInteger(parsedDepartmentId)) {
+        return c.json({ error: '部门ID无效' }, 400);
+      }
+
+      const department = await db.get(
+        `SELECT d.id
+         FROM departments d
+         WHERE d.id = ?
+           AND NOT EXISTS (SELECT 1 FROM departments child WHERE child.parent_id = d.id)`,
+        [parsedDepartmentId]
+      );
+      if (!department) {
+        return c.json({ error: '用户只能分配到有效的子部门' }, 400);
+      }
+
+      resolvedDepartmentId = parsedDepartmentId;
+    }
 
     // 确定创建者ID
     let createdBy = currentUser.id;
@@ -182,12 +223,12 @@ users.post('/create', authMiddleware, adminMiddleware, async c => {
     const now = getCurrentShanghaiTime();
 
     // 确定用户角色和层级
-    const userRole = admin_level === 'sub' ? 'admin' : role;
-    const userAdminLevel = admin_level === 'sub' ? 'sub' : null;
+    const userRole = requestedAdminLevel ? 'admin' : 'user';
+    const userAdminLevel = requestedAdminLevel;
 
     // 创建用户（使用确定的创建者ID）
     const result = await db.run(
-      'INSERT INTO users (username, password, email, role, admin_level, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO users (username, password, email, role, admin_level, created_by, department_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [
         username,
         hashedPassword,
@@ -195,6 +236,7 @@ users.post('/create', authMiddleware, adminMiddleware, async c => {
         userRole,
         userAdminLevel,
         createdBy,
+        resolvedDepartmentId,
         now
       ]
     );
@@ -313,6 +355,7 @@ users.post('/create', authMiddleware, adminMiddleware, async c => {
         email,
         role: userRole,
         admin_level: userAdminLevel,
+        department_id: resolvedDepartmentId,
         created_by: createdBy,
         created_at: now,
         products: createdProducts // 返回创建的产品列表
@@ -505,7 +548,8 @@ users.get('/:userId/data', authMiddleware, async c => {
 users.put('/:userId', authMiddleware, adminMiddleware, async c => {
   try {
     const userId = parseInt(c.req.param('userId'));
-    const { email, password, role, products } = await c.req.json();
+    const payload = await c.req.json();
+    const { admin_level, department_id, email, password, products, role } = payload;
     const currentUser = c.get('user');
 
     if (isNaN(userId)) {
@@ -516,7 +560,7 @@ users.put('/:userId', authMiddleware, adminMiddleware, async c => {
 
     // 检查用户是否存在，并获取用户信息
     const existingUser = await db.get(
-      'SELECT id, username, created_by FROM users WHERE id = ?',
+      'SELECT id, username, role, admin_level, department_id, created_by, is_system FROM users WHERE id = ?',
       [userId]
     );
 
@@ -527,6 +571,41 @@ users.put('/:userId', authMiddleware, adminMiddleware, async c => {
     // 权限检查：子管理员只能修改自己创建的用户
     if (!canManageUser(currentUser, userId, existingUser.created_by)) {
       return c.json({ error: '权限不足，只能修改自己创建的用户' }, 403);
+    }
+
+    const changesAccess = role !== undefined || admin_level !== undefined;
+    if (changesAccess && !isSuperAdmin(currentUser)) {
+      return c.json({ error: '只有总管理员可以修改用户角色' }, 403);
+    }
+
+    if (changesAccess && Boolean(existingUser.is_system)) {
+      return c.json({ error: '受保护的系统账户不能修改角色' }, 403);
+    }
+
+    const nextRole = role ?? existingUser.role;
+    if (!['admin', 'user'].includes(nextRole)) {
+      return c.json({ error: '用户角色无效' }, 400);
+    }
+
+    let nextAdminLevel = admin_level ?? existingUser.admin_level;
+    if (nextRole === 'user') {
+      nextAdminLevel = null;
+    } else if (!['super', 'sub'].includes(nextAdminLevel)) {
+      nextAdminLevel = 'sub';
+    }
+
+    const demotesSuperAdmin =
+      existingUser.role === 'admin' &&
+      existingUser.admin_level === 'super' &&
+      (nextRole !== 'admin' || nextAdminLevel !== 'super');
+
+    if (demotesSuperAdmin) {
+      const superAdminCount = await db.get(
+        "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND admin_level = 'super'"
+      );
+      if (Number(superAdminCount?.count) <= 1) {
+        return c.json({ error: '系统必须至少保留一个总管理员' }, 400);
+      }
     }
 
     // 验证密码格式（如果提供密码）
@@ -579,15 +658,44 @@ users.put('/:userId', authMiddleware, adminMiddleware, async c => {
       params.push(hashedPassword);
     }
 
-    if (role) {
+    if (changesAccess) {
       updateFields.push('role = ?');
-      params.push(role);
+      params.push(nextRole);
+      updateFields.push('admin_level = ?');
+      params.push(nextAdminLevel);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'department_id') || nextAdminLevel === 'super') {
+      let resolvedDepartmentId: number | null = null;
+
+      if (nextAdminLevel !== 'super' && department_id !== null && department_id !== undefined) {
+        const parsedDepartmentId = Number(department_id);
+        if (!Number.isInteger(parsedDepartmentId)) {
+          return c.json({ error: '部门ID无效' }, 400);
+        }
+
+        const department = await db.get(
+          `SELECT d.id
+           FROM departments d
+           WHERE d.id = ?
+             AND NOT EXISTS (SELECT 1 FROM departments child WHERE child.parent_id = d.id)`,
+          [parsedDepartmentId]
+        );
+        if (!department) {
+          return c.json({ error: '用户只能分配到有效的子部门' }, 400);
+        }
+
+        resolvedDepartmentId = parsedDepartmentId;
+      }
+
+      updateFields.push('department_id = ?');
+      params.push(resolvedDepartmentId);
     }
 
     // 更新用户基本信息（如果有）
     if (updateFields.length > 0) {
       params.push(userId);
-      const updateQuery = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+      const updateQuery = `UPDATE users SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
       await db.run(updateQuery, params);
     }
 
@@ -927,7 +1035,21 @@ users.put('/:userId', authMiddleware, adminMiddleware, async c => {
 
     // 获取更新后的用户信息
     const updatedUser = await db.get(
-      'SELECT id, username, email, role, created_at FROM users WHERE id = ?',
+      `SELECT
+         u.id,
+         u.username,
+         u.email,
+         u.role,
+         u.admin_level,
+         u.department_id,
+         u.is_system,
+         u.created_at,
+         department.name AS department_name,
+         parent_department.name AS department_parent_name
+       FROM users u
+       LEFT JOIN departments department ON u.department_id = department.id
+       LEFT JOIN departments parent_department ON department.parent_id = parent_department.id
+       WHERE u.id = ?`,
       [userId]
     );
 
@@ -966,7 +1088,7 @@ users.delete('/:userId', authMiddleware, adminMiddleware, async c => {
 
     // 获取目标用户信息
     const targetUser = await db.get(
-      'SELECT id, username, created_by FROM users WHERE id = ?',
+      'SELECT id, username, role, admin_level, created_by, is_system FROM users WHERE id = ?',
       [userId]
     );
 
@@ -975,14 +1097,22 @@ users.delete('/:userId', authMiddleware, adminMiddleware, async c => {
     }
 
     // 权限检查：只有总管理员可以删除用户
-    if (!canDeleteUser(currentUser, userId, targetUser.username)) {
+    if (!canDeleteUser(currentUser, targetUser)) {
       return c.json(
         {
-          error:
-            '权限不足，只有总管理员可以删除用户，且不能删除自己或系统vben账户'
+          error: '权限不足，不能删除自己或受保护的系统账户'
         },
         403
       );
+    }
+
+    if (targetUser.role === 'admin' && targetUser.admin_level === 'super') {
+      const superAdminCount = await db.get(
+        "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND admin_level = 'super'"
+      );
+      if (Number(superAdminCount?.count) <= 1) {
+        return c.json({ error: '系统必须至少保留一个总管理员' }, 400);
+      }
     }
 
     // 按正确顺序删除关联数据（外键约束要求先删除子表数据）

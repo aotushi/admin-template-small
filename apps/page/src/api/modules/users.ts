@@ -11,6 +11,7 @@ export interface AdminUserListItem {
   email?: null | string;
   id: number | string;
   is_system?: boolean | number;
+  is_active?: boolean | number;
   role: string;
   username: string;
 }

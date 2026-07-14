@@ -3,7 +3,7 @@ import { computed, reactive, shallowRef, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 
-import type { AdminUserListItem } from "@/api/users";
+import type { AdminUserListItem } from "@/api/modules/users";
 import { getApiErrorMessage } from "@/api/request";
 import { AdminDataTable } from "@/components/common";
 import { useDepartmentsTreeQuery, useUsersListQuery } from "@/queries/users";
@@ -178,8 +178,10 @@ function showDeferredFeature(featureName: string) {
           </span>
         </template>
 
-        <template #cell-status>
-          <ElTag effect="light" type="success">{{ getUserStatusLabel() }}</ElTag>
+        <template #cell-status="{ row }: { row: AdminUserListItem }">
+          <ElTag :type="row.is_active === 0 ? 'info' : 'success'" effect="light">
+            {{ getUserStatusLabel(row) }}
+          </ElTag>
         </template>
 
         <template #cell-role="{ row }: { row: AdminUserListItem }">

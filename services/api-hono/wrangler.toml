@@ -1,6 +1,6 @@
 name = "admin-backend-3-api-hono"
 main = "src/index.ts"
-compatibility_date = "2025-08-21"
+compatibility_date = "2026-07-02"
 account_id = "eff602d8715ddb9bcf1b4ba8b2ca0788"
 
 # wrangler.toml (wrangler v3.88.0^)
@@ -8,8 +8,8 @@ account_id = "eff602d8715ddb9bcf1b4ba8b2ca0788"
 enabled = true
 
 [vars]
-ENVIRONMENT = "development"
-JWT_SECRET = "your-jwt-secret-key-development"
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://admin.9shi.cc"
 
 # Cloudflare Workers 兼容性标志
 compatibility_flags = ["nodejs_compat"]

@@ -1,3 +1,4 @@
+import { AUTH_ERROR_CODES } from '@admin-backend-3/admin-api-contract/auth';
 import { Hono } from 'hono';
 import bcrypt from 'bcryptjs';
 import { DatabaseWrapper } from '../models/database';
@@ -6,12 +7,48 @@ import { getJWTSecret } from '../middlewares/auth';
 import { logger } from '../utils/logger';
 import { isSuperAdmin } from '../middlewares/permissions';
 import {
-  createAuthTokenPair,
-  createUserPayload,
-  verifyAuthToken
+  createAccessToken,
+  createUserPayload
 } from '../services/tokens';
+import {
+  createRefreshSession,
+  RefreshSessionError,
+  revokeRefreshFamily,
+  revokeRefreshSession,
+  rotateRefreshSession
+} from '../services/refresh-sessions';
+import {
+  clearRefreshCookie,
+  getRefreshCookie,
+  setRefreshCookie
+} from '../services/auth-cookies';
+import { isTrustedBrowserOrigin } from '../config/origins';
+import { authError, setAuthResponseNoStore } from '../services/auth-responses';
 
 const auth = new Hono<{ Bindings: Env }>();
+
+auth.use('*', async (c, next) => {
+  setAuthResponseNoStore(c);
+  await next();
+});
+
+function serializeUser(user: any) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    email: user.email || '',
+    admin_level: user.admin_level,
+    department_id: user.department_id,
+    is_active: Boolean(user.is_active),
+    is_system: Boolean(user.is_system),
+    created_by: user.created_by
+  };
+}
+
+function sessionExpiresAt(expiresAt: number) {
+  return new Date(expiresAt * 1000).toISOString();
+}
 
 // 用户登录
 auth.post('/login', async c => {
@@ -19,6 +56,15 @@ auth.post('/login', async c => {
   const startTime = Date.now();
 
   try {
+    if (!isTrustedBrowserOrigin(c)) {
+      return authError(
+        c,
+        403,
+        AUTH_ERROR_CODES.originNotAllowed,
+        '不受信任的请求来源'
+      );
+    }
+
     const { username, password } = await c.req.json();
     timings.parseRequest = Date.now() - startTime;
 
@@ -31,13 +77,18 @@ auth.post('/login', async c => {
     // 查找用户
     const dbStart = Date.now();
     const user = await db.get(
-      'SELECT id, username, password, role, email, admin_level, department_id, is_system, created_by FROM users WHERE username = ?',
+      'SELECT id, username, password, role, email, admin_level, department_id, is_system, is_active, created_by FROM users WHERE username = ?',
       [username]
     );
     timings.dbQuery = Date.now() - dbStart;
 
     if (!user) {
-      return c.json({ error: '用户名或密码错误' }, 401);
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.invalidCredentials,
+        '用户名或密码错误'
+      );
     }
 
     // 验证密码 - 使用异步方法避免阻塞
@@ -46,12 +97,29 @@ auth.post('/login', async c => {
     timings.bcryptCompare = Date.now() - bcryptStart;
 
     if (!isValidPassword) {
-      return c.json({ error: '用户名或密码错误' }, 401);
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.invalidCredentials,
+        '用户名或密码错误'
+      );
+    }
+
+    if (Number(user.is_active) !== 1) {
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.accountUnavailable,
+        '账号已停用'
+      );
     }
 
     const jwtStart = Date.now();
     const jwtSecret = getJWTSecret(c.env);
-    const tokens = await createAuthTokenPair(createUserPayload(user), jwtSecret);
+    const userPayload = createUserPayload(user);
+    const access = await createAccessToken(userPayload, jwtSecret);
+    const refreshSession = await createRefreshSession(c.env.DB, user.id);
+    setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
     timings.jwtSign = Date.now() - jwtStart;
 
     timings.total = Date.now() - startTime;
@@ -59,18 +127,10 @@ auth.post('/login', async c => {
     return c.json({
       success: true,
       data: {
-        ...tokens,
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          email: user.email || '',
-          admin_level: user.admin_level,
-          department_id: user.department_id,
-          is_system: Boolean(user.is_system),
-          created_by: user.created_by
-        },
-        _timings: timings // 临时返回性能数据
+        ...access,
+        sessionExpires: sessionExpiresAt(refreshSession.absoluteExpiresAt),
+        user: serializeUser(user),
+        ...(c.env.ENVIRONMENT === 'development' && { _timings: timings })
       }
     });
   } catch (error) {
@@ -79,50 +139,142 @@ auth.post('/login', async c => {
   }
 });
 
-// 刷新 accessToken
+// Rotate the browser refresh session and issue a new access token.
 auth.post('/refresh', async c => {
-  try {
-    const { refreshToken } = await c.req.json();
+  let rotatedFamilyId: null | string = null;
 
-    if (!refreshToken) {
-      return c.json({ error: 'refreshToken不能为空' }, 400);
+  try {
+    if (!isTrustedBrowserOrigin(c)) {
+      clearRefreshCookie(c);
+      return authError(
+        c,
+        403,
+        AUTH_ERROR_CODES.originNotAllowed,
+        '不受信任的请求来源'
+      );
+    }
+
+    const refreshCredential = getRefreshCookie(c);
+    if (!refreshCredential) {
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.refreshMissing,
+        '刷新会话不存在'
+      );
     }
 
     const jwtSecret = getJWTSecret(c.env);
-    const payload = await verifyAuthToken(refreshToken, jwtSecret, 'refresh');
+    const refreshSession = await rotateRefreshSession(c.env.DB, refreshCredential);
+    rotatedFamilyId = refreshSession.familyId;
     const db = new DatabaseWrapper(c.env.DB);
     const user = await db.get(
-      'SELECT id, username, role, email, admin_level, department_id, is_system, created_by FROM users WHERE id = ?',
-      [payload.id]
+      'SELECT id, username, role, email, admin_level, department_id, is_system, is_active, created_by FROM users WHERE id = ?',
+      [refreshSession.userId]
     );
 
-    if (!user) {
-      return c.json({ error: '用户不存在' }, 401);
+    if (!user || Number(user.is_active) !== 1) {
+      await revokeRefreshFamily(c.env.DB, refreshSession.familyId, 'account-unavailable');
+      clearRefreshCookie(c);
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.accountUnavailable,
+        '用户不存在、已停用或已删除'
+      );
     }
 
-    const tokens = await createAuthTokenPair(createUserPayload(user), jwtSecret);
+    const access = await createAccessToken(createUserPayload(user), jwtSecret);
+    setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
 
     return c.json({
       success: true,
-      data: tokens
+      data: {
+        ...access,
+        sessionExpires: sessionExpiresAt(refreshSession.absoluteExpiresAt),
+        user: serializeUser(user)
+      }
     });
   } catch (error) {
     logger.error('Refresh token error', error);
-    return c.json({ error: '刷新登录状态失败' }, 401);
+
+    if (rotatedFamilyId) {
+      try {
+        await revokeRefreshFamily(
+          c.env.DB,
+          rotatedFamilyId,
+          'refresh-completion-failed'
+        );
+      } catch (revokeError) {
+        logger.error('Refresh session cleanup error', revokeError);
+      }
+      clearRefreshCookie(c);
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.refreshRevoked,
+        '刷新会话无法继续使用'
+      );
+    }
+
+    if (error instanceof RefreshSessionError) {
+      clearRefreshCookie(c);
+      const code =
+        error.code === 'expired'
+          ? AUTH_ERROR_CODES.refreshExpired
+          : error.code === 'replayed'
+            ? AUTH_ERROR_CODES.refreshReplayed
+            : AUTH_ERROR_CODES.refreshRevoked;
+      const message =
+        error.code === 'expired'
+          ? '刷新会话已过期'
+          : error.code === 'replayed'
+            ? '检测到刷新凭证重放'
+            : '刷新会话已失效';
+
+      return authError(c, 401, code, message);
+    }
+
+    return authError(
+      c,
+      503,
+      AUTH_ERROR_CODES.authServiceUnavailable,
+      '刷新服务暂不可用'
+    );
+  }
+});
+
+auth.post('/logout', async c => {
+  if (!isTrustedBrowserOrigin(c)) {
+    clearRefreshCookie(c);
+    return authError(
+      c,
+      403,
+      AUTH_ERROR_CODES.originNotAllowed,
+      '不受信任的请求来源'
+    );
+  }
+
+  const refreshCredential = getRefreshCookie(c);
+
+  try {
+    if (refreshCredential) {
+      await revokeRefreshSession(c.env.DB, refreshCredential);
+    }
+
+    return c.json({ success: true, data: null });
+  } catch (error) {
+    logger.error('Logout error', error);
+    return c.json({ error: '退出登录失败' }, 500);
+  } finally {
+    clearRefreshCookie(c);
   }
 });
 
 // 用户注册 (仅管理员可创建新用户)
 auth.post('/register', async c => {
   try {
-    // 验证JWT token
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: '未授权访问' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const payload = await verifyAuthToken(token, getJWTSecret(c.env), 'access');
+    const payload = c.get('user');
 
     // 检查是否为管理员
     if (payload.role !== 'admin') {
@@ -181,17 +333,11 @@ auth.post('/register', async c => {
 // 获取当前用户信息
 auth.get('/profile', async c => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: '未授权访问' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const payload = await verifyAuthToken(token, getJWTSecret(c.env), 'access');
+    const payload = c.get('user');
 
     const db = new DatabaseWrapper(c.env.DB);
     const user = await db.get(
-      'SELECT id, username, role, email, admin_level, department_id, is_system, created_by, created_at FROM users WHERE id = ?',
+      'SELECT id, username, role, email, admin_level, department_id, is_system, is_active, created_by, created_at FROM users WHERE id = ?',
       [payload.id]
     );
 
@@ -212,13 +358,7 @@ auth.get('/profile', async c => {
 // 获取用户列表 (仅管理员)
 auth.get('/users', async c => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: '未授权访问' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const payload = await verifyAuthToken(token, getJWTSecret(c.env), 'access');
+    const payload = c.get('user');
 
     if (payload.role !== 'admin') {
       return c.json({ error: '权限不足' }, 403);
@@ -226,7 +366,7 @@ auth.get('/users', async c => {
 
     const db = new DatabaseWrapper(c.env.DB);
     const users = await db.all(
-      'SELECT id, username, role, email, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, username, role, email, is_active, created_at FROM users ORDER BY created_at DESC'
     );
 
     return c.json({

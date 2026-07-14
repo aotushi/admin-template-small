@@ -87,7 +87,7 @@ admin_level
 
 ```text
 进入路由
-  -> 从 localStorage 恢复 token 和用户快照到 Pinia
+  -> 若内存中没有 access token，先通过 HttpOnly Cookie 调用刷新接口恢复会话
   -> 已登录访问登录页：跳转到 redirect 或 /dashboard
   -> 未登录访问受保护页面：跳转 /login?redirect=目标地址
   -> 已登录但角色不满足：跳转 /403

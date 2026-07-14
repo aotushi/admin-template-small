@@ -6,7 +6,8 @@ import {
   type QueryCache,
 } from "@pinia/colada";
 
-import { getProfileApi, loginApi } from "@/api/auth";
+import { getProfileApi, loginApi } from "@/api/modules/auth";
+import { authSessionCoordinator } from "@/api/request";
 import { getAccessToken } from "@/api/session";
 import type { LoginPayload, LoginResult } from "@/api/types";
 
@@ -34,9 +35,9 @@ export function useLoginMutation() {
 
   return useMutation<LoginResult, LoginPayload>({
     key: AUTH_MUTATION_KEYS.login(),
-    mutation: (payload) => loginApi(payload),
+    mutation: (payload) => authSessionCoordinator.login(() => loginApi(payload)),
     onSuccess() {
-      clearAuthQueryCache(queryCache);
+      clearPrivateQueryCache(queryCache);
     },
   });
 }
@@ -45,6 +46,14 @@ export function clearAuthQueryCache(queryCache: QueryCache) {
   queryCache.cancelQueries({ key: AUTH_QUERY_KEYS.root }, "auth session changed");
 
   for (const entry of queryCache.getEntries({ key: AUTH_QUERY_KEYS.root })) {
+    queryCache.remove(entry);
+  }
+}
+
+export function clearPrivateQueryCache(queryCache: QueryCache) {
+  queryCache.cancelQueries(undefined, "auth session changed");
+
+  for (const entry of queryCache.getEntries()) {
     queryCache.remove(entry);
   }
 }

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, shallowRef } from "vue";
+import { computed, shallowRef, watch } from "vue";
+import { ElMessage } from "element-plus";
 import { RouterView, useRoute, useRouter } from "vue-router";
 import { useMediaQuery } from "@vueuse/core";
+import { useQueryCache } from "@pinia/colada";
 
 import AdminSidebar from "@/components/layout/AdminSidebar.vue";
 import AdminTopbar from "@/components/layout/AdminTopbar.vue";
@@ -9,10 +11,12 @@ import { useAppTheme } from "@/composables/useAppTheme";
 import { createMenuItems } from "@/router/menu";
 import { appRoutes } from "@/router/routes";
 import { useAuthStore } from "@/stores/auth";
+import { clearPrivateQueryCache } from "@/queries/auth";
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const queryCache = useQueryCache();
 const sidebarCollapsed = shallowRef(false);
 const isNarrowScreen = useMediaQuery("(max-width: 860px)");
 const { isDark, sidebarTheme, theme, toggleTheme } = useAppTheme();
@@ -26,9 +30,32 @@ function toggleSidebar() {
 }
 
 async function handleLogout() {
-  authStore.clearSession();
-  await router.replace("/login");
+  try {
+    await authStore.logout();
+  } catch {
+    ElMessage.warning("服务器未确认退出，但本地登录状态已清除");
+  } finally {
+    clearPrivateQueryCache(queryCache);
+    if (route.path !== "/login") {
+      await router.replace("/login");
+    }
+  }
 }
+
+watch(
+  () => authStore.isAuthenticated,
+  async (isAuthenticated, wasAuthenticated) => {
+    if (isAuthenticated || !wasAuthenticated || !route.meta.requiresAuth) {
+      return;
+    }
+
+    clearPrivateQueryCache(queryCache);
+    await router.replace({
+      path: "/login",
+      query: { redirect: route.fullPath },
+    });
+  },
+);
 </script>
 
 <template>

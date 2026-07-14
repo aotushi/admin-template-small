@@ -8,7 +8,7 @@
 
 | 文件                                                               | 作用                                                   |
 | ------------------------------------------------------------------ | ------------------------------------------------------ |
-| [`src/api/auth.ts`](../../src/api/auth.ts)                         | 提供 `loginApi()`，只负责调用登录接口                  |
+| [`src/api/modules/auth.ts`](../../src/api/modules/auth.ts)         | 提供 `loginApi()`，只负责调用登录接口                  |
 | [`src/queries/auth.ts`](../../src/queries/auth.ts)                 | 提供 `useLoginMutation()`，管理登录动作状态            |
 | [`src/views/LoginView.vue`](../../src/views/LoginView.vue)         | 调用 `loginMutation.mutateAsync()`，成功后保存 session |
 | [`src/router/redirect.ts`](../../src/router/redirect.ts)           | 统一处理登录成功后的跳转目标                           |
@@ -23,7 +23,7 @@
   -> loginApi(payload)
   -> Axios 发请求
   -> mutation onSuccess 清理 auth 查询缓存
-  -> LoginView 保存 accessToken / refreshToken / user
+  -> LoginView 将 accessToken / user 写入内存会话
   -> LoginView 解析 redirect 参数
   -> 跳转到合法 redirect 或 /dashboard
 ```
@@ -121,14 +121,16 @@
 ```text
 login -> mutation
 profile -> query
-session -> localStorage / Pinia
+access session -> memory / Pinia
+refresh session -> HttpOnly Cookie / backend D1
 ```
 
 这条边界最适合后台管理学习：
 
 - 登录是动作，用 mutation。
 - 当前用户资料是读取，用 query。
-- Token 和用户快照是本地会话，用 session/localStorage 和 Pinia。
+- 短期 Token 和用户快照只留在当前页面内存，由 session 模块和 Pinia 管理。
+- 长期刷新凭证由浏览器的 HttpOnly Cookie 和后端会话表管理，前端脚本不可读取。
 
 后续用户管理模块也应沿用：
 

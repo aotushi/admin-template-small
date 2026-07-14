@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AdminUserListItem } from "@/api/users";
+import type { AdminUserListItem } from "@/api/modules/users";
 import { createDefaultUserFilters, filterUsers, paginateUsers } from "./userFilters";
 
 const users: AdminUserListItem[] = [
@@ -25,6 +25,7 @@ const users: AdminUserListItem[] = [
     department_parent_name: "技术部",
     email: "admin@example.com",
     id: 2,
+    is_active: 0,
     role: "admin",
     username: "admin",
   },
@@ -81,6 +82,15 @@ describe("userFilters", () => {
   it("filters users by selected department ids", () => {
     expect(filterUsers(users, createDefaultUserFilters(), [9])).toEqual([users[2]]);
     expect(filterUsers(users, createDefaultUserFilters(), [20, 21])).toEqual([users[1]]);
+  });
+
+  it("filters users by their persisted account status", () => {
+    expect(
+      filterUsers(users, {
+        ...createDefaultUserFilters(),
+        status: "disabled",
+      }),
+    ).toEqual([users[1]]);
   });
 
   it("paginates a filtered result without mutating source data", () => {

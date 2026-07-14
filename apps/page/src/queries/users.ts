@@ -1,6 +1,6 @@
 import { defineQueryOptions, useQuery } from "@pinia/colada";
 
-import { getDepartmentsTreeApi, getUsersApi } from "@/api/users";
+import { getDepartmentsTreeApi, getUsersApi } from "@/api/modules/users";
 
 export const USERS_QUERY_KEYS = {
   departments: () => [...USERS_QUERY_KEYS.root, "departments"] as const,

@@ -1,65 +1,47 @@
-# Pure Admin Backend
+# Admin Backend 3 Hono API
 
-基于Hono.js的高性能后端，支持Cloudflare Workers部署和本地开发环境。
+基于 Hono、Cloudflare Workers 和 D1 的后台管理 API。第一版先部署到 Cloudflare，后续其它语言后端继续遵守 `contracts/admin-api` 中的同一份接口契约。
 
-## 技术架构
-
-- **框架**: Hono.js (高性能Web框架)
-- **数据库**:
-  - 本地开发: SQLite (better-sqlite3)
-  - 生产环境: Cloudflare D1 (SQLite)
-- **认证**: JWT (JSON Web Tokens)
-- **语言**: TypeScript
-- **部署**: Cloudflare Workers / 本地Node.js
-
-## 项目结构
-
-```
-backend/
-├── src/
-│   ├── index.ts          # 主入口文件
-│   ├── models/
-│   │   └── database.ts   # 数据库封装 (兼容SQLite/D1)
-│   ├── routes/
-│   │   ├── auth.ts       # 用户认证API
-│   │   └── files.ts      # Excel文件管理API
-│   └── utils/            # 工具函数
-├── database.sqlite       # 本地SQLite数据库
-├── wrangler.toml         # Cloudflare Workers配置
-└── package.json          # 依赖配置
-```
-
-## 快速启动
-
-### 1. 安装依赖
+## 本地启动
 
 ```bash
 pnpm install
+pnpm --dir services/api-hono db:migrate:local
+pnpm --dir services/api-hono dev
 ```
 
-### 2. 本地开发启动
+默认地址：
 
-```bash
-# 使用 wrangler 本地开发，默认端口 8788
-pnpm dev
-```
+- 健康检查：`http://localhost:8788/admin/health`
+- API 根路径：`http://localhost:8788/admin/`
 
-### 3. 验证启动
+复制 `.dev.vars.example` 为 `.dev.vars`，并把示例密钥替换为足够长的本地随机值。`.dev.vars` 已被 Git 忽略。
 
-- 健康检查: http://localhost:8788/admin/health
-- API测试: http://localhost:8788/admin/
+## 认证设计
 
-## 数据库
+项目使用加固后的双 Token 会话：
 
-项目使用SQLite数据库，首次启动会自动创建：
+| 内容 | 行为 |
+| ---- | ---- |
+| access token | 15 分钟 JWT，通过登录或刷新响应返回；前端只保存在页面内存 |
+| refresh 凭证 | 随机凭证，只通过 HttpOnly Cookie 传输；空闲 7 天、最长 30 天 |
+| refresh 数据 | D1 只保存 SHA-256 摘要，不保存原始凭证 |
+| 刷新 | 每次成功后作废旧凭证并签发新凭证 |
+| 重放 | 已轮换凭证再次使用时，撤销整组登录会话 |
+| 退出 | 服务端撤销整组 refresh 会话并清除 Cookie |
+| 账号停用 | 受保护请求发现账号不可用后，撤销该账号全部 refresh 会话 |
+| 错误契约 | 使用稳定认证错误码；只有明确的 access token 过期允许前端刷新 |
 
-- `users` - 用户表
-- `excel_files` - Excel文件记录表
-- `excel_data` - Excel数据表
+认证接口：
 
-### 本地演示账户
+- `POST /admin/api/auth/login`
+- `POST /admin/api/auth/refresh`，无请求体
+- `POST /admin/api/auth/logout`
+- `GET /admin/api/auth/profile`
 
-本地开发和前端登录页的快速账号保持一致：
+浏览器端登录、刷新和退出必须来自精确允许的 Origin。生产前端和 API 分别为 `https://admin.9shi.cc` 与 `https://api.9shi.cc`。
+
+## 本地演示账号
 
 | 展示名称 | 用户名  | 密码     | 角色  | 管理员层级 |
 | -------- | ------- | -------- | ----- | ---------- |
@@ -67,102 +49,36 @@ pnpm dev
 | Admin    | `admin` | `123456` | admin | sub        |
 | User     | `jack`  | `123456` | user  | -          |
 
-## API接口
+## 生产部署前置条件
 
-### 认证接口
-
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/register` - 用户注册 (管理员)
-- `GET /api/auth/profile` - 获取用户信息
-- `GET /api/auth/users` - 获取用户列表 (管理员)
-
-### 文件管理接口
-
-- `POST /api/files/upload` - 上传Excel文件 (管理员)
-- `GET /api/files/list` - 获取文件列表
-- `GET /api/files/data/:fileId` - 获取文件数据
-- `DELETE /api/files/:fileId` - 删除文件 (管理员)
-
-## 部署
-
-### 本地开发
+1. 为 Worker 设置生产密钥，不能把真实值写入仓库：
 
 ```bash
-pnpm start:local
+pnpm --dir services/api-hono exec wrangler secret put JWT_SECRET
 ```
 
-### Cloudflare Workers部署
+2. 先在本地验证全部迁移，再由操作者明确确认后执行远程迁移：
 
 ```bash
-# 部署到Cloudflare Workers
-pnpm deploy
+pnpm --dir services/api-hono exec wrangler d1 migrations apply admin-backend-db --remote
 ```
 
-### 环境变量
-
-生产环境需要配置以下环境变量：
-
-- `JWT_SECRET` - JWT密钥
-- `DATABASE_URL` - D1数据库绑定
-- `STORAGE_BUCKET` - R2存储桶绑定
-
-## 测试API
+3. 构建检查：
 
 ```bash
-# 测试登录
-curl -X POST http://localhost:8788/admin/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"vben","password":"123456"}'
-
-# 测试文件列表 (需要登录获取token)
-curl -X GET http://localhost:3000/api/files/list \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+pnpm --dir services/api-hono build
 ```
 
-## pnpm卸载
+远程 D1 迁移不会由自动化流程自行执行。
 
-1.  完全清理 pnpm 安装的内容
-    Remove-Item -Recurse -Force node_modules
-    Remove-Item -Force pnpm-lock.yaml
+## 主要目录
 
-2.  清理 npm 缓存（解决之前的 npm 错误）
-    npm cache clean --force
-
-3.  用 npm 重新安装所有依赖
-    npm install
-
-## 其它
-
-### 同步远程数据库到本地
-
-```sh
-# 1. 导出远程数据库 例子
-  cd site66/backend
-  npx wrangler d1 export site66-admin-system --remote --output ./remote-backup.sql
-
-  # 2. 删除旧本地数据库
-  rm .wrangler/state/v3/d1/miniflare-D1DatabaseObject/753c18516e81cfbeff1f900c97285f056f3470b
-  b6c0b4fb4456fff225e366de8.sqlite
-
-  # 3.导入
-  sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/753c18516e81cfbeff1f900c97285f056f
-  3470bb6c0b4fb4456fff225e366de8.sqlite < remote-backup.sql
-
+```text
+services/api-hono/
+  migrations/       D1 数据库迁移
+  src/config/       Origin 等运行配置
+  src/middlewares/  认证、权限和安全中间件
+  src/routes/       业务接口
+  src/services/     Token、Cookie、刷新会话和业务服务
+  wrangler.toml     Worker、D1、域名和定时任务配置
 ```
-
-. 导出远程数据库  
- cd site66/backend  
- npx wrangler d1 export site66-admin-system --remote --output ./remote-backup.sql
-
-# 2. 删除旧本地数据库并导入
-
-rm .wrangler/state/v3/d1/miniflare-D1DatabaseObject/753c18516e81cfbeff1f900c97285f056f3470b
-b6c0b4fb4456fff225e366de8.sqlite
-sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/753c18516e81cfbeff1f900c97285f056f
-3470bb6c0b4fb4456fff225e366de8.sqlite < remote-backup.sql
-
-````
-
-```470bb6c0b4fb4456fff225e366de8.sqlite < remote-backup.sql
-
-````

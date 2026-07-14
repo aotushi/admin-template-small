@@ -1,4 +1,4 @@
-import type { AdminDepartmentTreeItem } from "@/api/users";
+import type { AdminDepartmentTreeItem } from "@/api/modules/users";
 
 export const ALL_DEPARTMENTS_KEY = "all";
 const DEPARTMENT_KEY_PREFIX = "department:";

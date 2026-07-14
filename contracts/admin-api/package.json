@@ -1,0 +1,10 @@
+{
+  "name": "@admin-backend-3/admin-api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts"
+  }
+}

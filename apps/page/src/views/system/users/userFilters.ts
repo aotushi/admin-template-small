@@ -1,4 +1,4 @@
-import type { AdminUserListItem } from "@/api/users";
+import type { AdminUserListItem } from "@/api/modules/users";
 import type { UserFilters, UserPagination } from "@/views/system/users/types";
 
 export function createDefaultUserFilters(): UserFilters {
@@ -40,12 +40,12 @@ export function paginateUsers(users: readonly AdminUserListItem[], pagination: U
   return users.slice(start, start + pageSize);
 }
 
-export function getUserStatus() {
-  return "enabled";
+export function getUserStatus(user: AdminUserListItem) {
+  return Number(user.is_active ?? 1) === 1 ? "enabled" : "disabled";
 }
 
-export function getUserStatusLabel() {
-  return "启用";
+export function getUserStatusLabel(user: AdminUserListItem) {
+  return getUserStatus(user) === "enabled" ? "启用" : "停用";
 }
 
 export function getUserRoleLabel(user: AdminUserListItem) {
@@ -86,8 +86,8 @@ function matchesUserId(user: AdminUserListItem, userId: string) {
   return String(user.id).includes(userId);
 }
 
-function matchesStatus(_user: AdminUserListItem, status: UserFilters["status"]) {
-  return status === "all" || getUserStatus() === status;
+function matchesStatus(user: AdminUserListItem, status: UserFilters["status"]) {
+  return status === "all" || getUserStatus(user) === status;
 }
 
 function matchesCreatedRange(user: AdminUserListItem, createdRange: UserFilters["createdRange"]) {

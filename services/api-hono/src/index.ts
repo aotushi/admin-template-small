@@ -19,10 +19,13 @@ import {
 } from './middlewares/security';
 import { logger } from './utils/logger';
 import type { Env as DataSourceEnv } from './services/dataSources/types';
+import { resolveAllowedOrigin } from './config/origins';
 
 export interface Env extends DataSourceEnv {
   STORAGE?: R2Bucket;
   ENVIRONMENT?: string;
+  ALLOWED_ORIGINS?: string;
+  JWT_SECRET: string;
 }
 
 const app = new Hono<{ Bindings: Env }>().basePath('/admin');
@@ -38,24 +41,10 @@ app.use('*', rateLimitMiddleware({ windowMs: 60000, maxRequests: 100 }));
 app.use(
   '*',
   cors({
-    origin: origin => {
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'http://localhost:8848',
-        'http://127.0.0.1:8848',
-        'https://admin.9shi.cc'
-      ];
-
-      // 允许固定域名
-      if (allowedOrigins.includes(origin)) return origin;
-
-      // 允许个人 CF Pages 预览域名
-      if (origin?.endsWith('.pages.dev')) return origin;
-
-      return allowedOrigins[0];
-    },
+    origin: resolveAllowedOrigin,
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposeHeaders: ['Retry-After', 'WWW-Authenticate'],
     credentials: true
   })
 );
@@ -72,7 +61,11 @@ app.use('/api/*', async (c, next) => {
   const path = c.req.path;
 
   // 公开路径白名单（不需要 token 验证）
-  const publicPaths = ['/admin/api/auth/login', '/admin/api/auth/refresh'];
+  const publicPaths = [
+    '/admin/api/auth/login',
+    '/admin/api/auth/logout',
+    '/admin/api/auth/refresh'
+  ];
 
   // 跳过公开路径
   if (publicPaths.includes(path)) {

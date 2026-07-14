@@ -9,10 +9,12 @@ const DASHBOARD_ROUTE_NAME = "Dashboard";
 const FORBIDDEN_ROUTE_NAME = "Forbidden";
 
 export function setupRouterGuards(router: Router) {
-  router.beforeEach((to) => {
+  router.beforeEach(async (to) => {
     const authStore = useAuthStore();
 
-    authStore.restoreFromStorage();
+    if (!authStore.isAuthenticated && !authStore.sessionRestoreCompleted) {
+      await authStore.restoreSession();
+    }
 
     if (to.meta.guestOnly && authStore.isAuthenticated) {
       return {

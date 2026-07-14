@@ -11,6 +11,7 @@
  * 3. 可疑请求日志 - 记录攻击来源便于分析
  */
 
+import { AUTH_ERROR_CODES } from '@admin-backend-3/admin-api-contract/auth';
 import { Context, Next } from 'hono';
 import { logger } from '../utils/logger';
 
@@ -108,6 +109,7 @@ export function rateLimitMiddleware(
 
     // 检查是否超限
     if (current.count >= maxRequests) {
+      const retryAfter = Math.ceil((current.resetTime - now) / 1000);
       logger.warn('Rate limit exceeded', {
         ip,
         count: current.count,
@@ -115,10 +117,14 @@ export function rateLimitMiddleware(
         path: c.req.path
       });
 
+      c.header('Retry-After', String(retryAfter));
+
       return c.json(
         {
+          code: AUTH_ERROR_CODES.tooManyRequests,
           error: 'Too Many Requests',
-          retryAfter: Math.ceil((current.resetTime - now) / 1000)
+          retryAfter,
+          success: false
         },
         429
       );

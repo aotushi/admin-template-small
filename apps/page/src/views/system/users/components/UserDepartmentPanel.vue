@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { AdminDepartmentTreeItem } from "@/api/users";
+import type { AdminDepartmentTreeItem } from "@/api/modules/users";
 import { AdminTreePanel } from "@/components/common";
 import type { AdminTreeNode } from "@/components/common";
 import { ALL_DEPARTMENTS_KEY, createDepartmentKey } from "@/views/system/users/departmentTree";

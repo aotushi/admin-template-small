@@ -1,25 +1,29 @@
 import { sign, verify } from 'hono/jwt';
 import type { UserPayload } from '../middlewares/permissions';
 
-export type AuthTokenType = 'access' | 'refresh';
+export type AuthTokenType = 'access';
 
 export interface AuthTokenPayload extends UserPayload {
+  [key: string]: unknown;
+  aud: string;
   exp: number;
   iat: number;
+  iss: string;
+  jti: string;
+  sub: string;
   tokenType: AuthTokenType;
 }
 
-export interface AuthTokenPair {
+export interface AccessTokenResult {
   accessToken: string;
   expires: string;
-  refreshExpires: string;
-  refreshToken: string;
   tokenType: 'Bearer';
 }
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
-export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const JWT_ALGORITHM = 'HS256';
+const JWT_AUDIENCE = 'admin-backend-3-api';
+const JWT_ISSUER = 'admin-backend-3';
 
 function nowInSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -54,37 +58,30 @@ function createTokenPayload(
 
   return {
     ...user,
+    aud: JWT_AUDIENCE,
     exp: iat + ttlSeconds,
     iat,
+    iss: JWT_ISSUER,
+    jti: crypto.randomUUID(),
+    sub: String(user.id),
     tokenType
   };
 }
 
-export async function createAuthTokenPair(
+export async function createAccessToken(
   user: UserPayload,
   secret: string
-): Promise<AuthTokenPair> {
+): Promise<AccessTokenResult> {
   const accessPayload = createTokenPayload(
     user,
     'access',
     ACCESS_TOKEN_TTL_SECONDS
   );
-  const refreshPayload = createTokenPayload(
-    user,
-    'refresh',
-    REFRESH_TOKEN_TTL_SECONDS
-  );
-
-  const [accessToken, refreshToken] = await Promise.all([
-    sign(accessPayload, secret, JWT_ALGORITHM),
-    sign(refreshPayload, secret, JWT_ALGORITHM)
-  ]);
+  const accessToken = await sign(accessPayload, secret, JWT_ALGORITHM);
 
   return {
     accessToken,
     expires: toIsoExpiration(accessPayload.exp),
-    refreshExpires: toIsoExpiration(refreshPayload.exp),
-    refreshToken,
     tokenType: 'Bearer'
   };
 }
@@ -113,7 +110,11 @@ export async function verifyAuthToken(
   secret: string,
   expectedType: AuthTokenType
 ) {
-  const payload = await verify(token, secret, JWT_ALGORITHM);
+  const payload = await verify(token, secret, {
+    alg: JWT_ALGORITHM,
+    aud: JWT_AUDIENCE,
+    iss: JWT_ISSUER
+  });
   assertTokenPayload(payload, expectedType);
   return payload;
 }

@@ -1,4 +1,4 @@
-import type { AdminUserListItem } from "@/api/users";
+import type { AdminUserListItem } from "@/api/modules/users";
 import type { AdminTableColumn } from "@/components/common";
 
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {

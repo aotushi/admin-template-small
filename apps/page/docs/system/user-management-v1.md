@@ -13,7 +13,7 @@
 | 能力     | 当前实现                                                     |
 | -------- | ------------------------------------------------------------ |
 | 列表接口 | `GET /admin/api/users/list`                                  |
-| 请求层   | `src/api/users.ts` 通过统一 Axios 客户端请求后端             |
+| 请求层   | `src/api/modules/users.ts` 通过统一 Axios 客户端请求后端     |
 | 查询状态 | `src/queries/users.ts` 使用 Pinia Colada 管理 query 状态     |
 | 页面入口 | `src/router/routes.ts` 中的 `/system/users`                  |
 | 页面骨架 | 参考 Vben 列表页，采用左侧部门树 + 右侧查询表单 + 表格工作台 |
@@ -26,7 +26,7 @@
 ## 文件结构
 
 ```text
-src/api/users.ts
+src/api/modules/users.ts
   -> 用户接口定义
 
 src/queries/users.ts

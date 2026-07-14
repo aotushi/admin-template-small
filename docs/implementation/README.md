@@ -28,13 +28,15 @@ Each major step must have its own document under `docs/implementation/steps/`. T
 | 007 | [Frontend Auth Linked Pages](steps/007-frontend-auth-linked-pages.md) | Complete | Add Vben-style pages behind login-page action buttons. |
 | 008 | [Frontend Request State Layer](steps/008-frontend-request-state-layer.md) | Complete | Add Pinia Colada on top of Axios for server-state queries and cache invalidation. |
 | 009 | [Local Demo Users](steps/009-local-demo-users.md) | Complete | Align local D1 demo users with frontend quick-login accounts. |
+| 010 | [Hardened Dual-token Session](steps/010-hardened-dual-token-session.md) | Complete | Keep access credentials in memory, rotate server-side refresh sessions, and apply the verified refresh-decision hardening. |
+| 011 | [Axios Request Layer Structure](steps/011-axios-request-layer-structure.md) | Complete | Make Axios configuration, interceptors, errors, response handling, and request methods explicit and testable. |
 
 ## Planned Next Steps
 
 | Step | Status | Purpose |
 | --- | --- | --- |
-| 010 Cloudflare First Deployment | Not started | Prepare the first Cloudflare Pages and Worker deployment path. |
-| 011 Feature Slices | Not started | Implement documented features one by one. |
+| 012 Cloudflare First Deployment | Not started | Prepare the first Cloudflare Pages and Worker deployment path. |
+| 013 Feature Slices | Not started | Implement documented features one by one. |
 
 ## Current Baseline
 

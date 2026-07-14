@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "services/api-hono", "dev"],
+      "port": 8788
+    },
+    {
+      "name": "page",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/page", "dev"],
+      "port": 5176
+    }
+  ]
+}

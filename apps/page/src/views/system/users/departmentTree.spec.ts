@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AdminDepartmentTreeItem } from "@/api/users";
+import type { AdminDepartmentTreeItem } from "@/api/modules/users";
 import {
   ALL_DEPARTMENTS_KEY,
   createDepartmentKey,

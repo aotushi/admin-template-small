@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AdminUserListItem } from "@/api/users";
+import type { AdminUserListItem } from "@/api/modules/users";
 import type { AdminTableColumn } from "@/components/common";
 import { userTableColumns } from "./userTableColumns";
 

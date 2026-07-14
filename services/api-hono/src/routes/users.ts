@@ -32,6 +32,7 @@ users.get('/list', authMiddleware, adminMiddleware, async c => {
         u.admin_level,
         u.department_id,
         u.is_system,
+        u.is_active,
         u.created_by,
         u.created_at,
         creator.username as created_by_username,

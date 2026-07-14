@@ -3,15 +3,18 @@
   "version": "latest",
   "description": "admin-backend-3 Hono Cloudflare Workers backend",
   "scripts": {
+    "db:migrate:local": "wrangler d1 migrations apply admin-backend-db --local",
     "dev": "wrangler dev src/index.ts --port 8788",
     "deploy": "wrangler deploy",
-    "start:local": "tsx src/index.ts",
     "build": "wrangler deploy --dry-run",
-    "start:express": "nodemon --config nodemon.json src-express/server.ts"
+    "start:express": "nodemon --config nodemon.json src-express/server.ts",
+    "start:local": "tsx src/index.ts",
+    "test": "vitest run"
   },
   "author": "xiaoxian521",
   "license": "ISC",
   "dependencies": {
+    "@admin-backend-3/admin-api-contract": "workspace:*",
     "bcryptjs": "^2.4.3",
     "hono": "^4.6.10",
     "jsonwebtoken": "^9.0.2",
@@ -21,6 +24,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.2",
     "typescript": "^5.8.3",
+    "vitest": "4.1.9",
     "wrangler": "^4.39.0"
   },
   "repository": "."

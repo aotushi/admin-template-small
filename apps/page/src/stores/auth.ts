@@ -1,42 +1,63 @@
 import { computed, shallowRef } from "vue";
 import { defineStore } from "pinia";
 
-import type { CurrentUser, LoginResult } from "@/api/types";
-import {
-  clearAuthSession,
-  getAccessToken,
-  getRefreshToken,
-  getStoredUser,
-  saveAuthSession,
-} from "@/api/session";
+import { logoutApi } from "@/api/modules/auth";
+import { authSessionCoordinator } from "@/api/request";
+import { getAuthSessionSnapshot, subscribeAuthSession } from "@/api/session";
 import { resolveUserAccessRole } from "@/auth/rbac";
 
 export const useAuthStore = defineStore("auth", () => {
-  const accessToken = shallowRef<string | null>(getAccessToken());
-  const refreshToken = shallowRef<string | null>(getRefreshToken());
-  const currentUser = shallowRef<CurrentUser | null>(getStoredUser());
+  const initialSession = getAuthSessionSnapshot();
+  const accessToken = shallowRef<null | string>(initialSession.accessToken);
+  const currentUser = shallowRef(initialSession.currentUser);
+  const sessionRestoreCompleted = shallowRef(Boolean(initialSession.accessToken));
+  let restorePromise: null | Promise<boolean> = null;
 
   const accessRole = computed(() => resolveUserAccessRole(currentUser.value));
   const isAuthenticated = computed(() => Boolean(accessToken.value));
 
-  function restoreFromStorage() {
-    accessToken.value = getAccessToken();
-    refreshToken.value = getRefreshToken();
-    currentUser.value = getStoredUser();
-  }
-
-  function setSession(result: LoginResult) {
-    saveAuthSession(result);
-    accessToken.value = getAccessToken();
-    refreshToken.value = getRefreshToken();
-    currentUser.value = result.user ?? getStoredUser();
-  }
+  subscribeAuthSession((nextSession) => {
+    accessToken.value = nextSession.accessToken;
+    currentUser.value = nextSession.currentUser;
+    if (nextSession.accessToken) {
+      sessionRestoreCompleted.value = true;
+    }
+  });
 
   function clearSession() {
-    clearAuthSession();
-    accessToken.value = null;
-    refreshToken.value = null;
-    currentUser.value = null;
+    authSessionCoordinator.endSession();
+    sessionRestoreCompleted.value = true;
+  }
+
+  async function restoreSession() {
+    if (accessToken.value) {
+      sessionRestoreCompleted.value = true;
+      return true;
+    }
+
+    if (sessionRestoreCompleted.value) {
+      return false;
+    }
+
+    restorePromise ??= authSessionCoordinator
+      .refresh("restore")
+      .then(() => {
+        return true;
+      })
+      .catch(() => {
+        return false;
+      })
+      .finally(() => {
+        sessionRestoreCompleted.value = true;
+        restorePromise = null;
+      });
+
+    return restorePromise;
+  }
+
+  async function logout() {
+    await authSessionCoordinator.logout(logoutApi);
+    sessionRestoreCompleted.value = true;
   }
 
   return {
@@ -45,8 +66,8 @@ export const useAuthStore = defineStore("auth", () => {
     clearSession,
     currentUser,
     isAuthenticated,
-    refreshToken,
-    restoreFromStorage,
-    setSession,
+    logout,
+    restoreSession,
+    sessionRestoreCompleted,
   };
 });

@@ -1,16 +1,5 @@
-export interface ApiSuccess<T> {
-  data: T;
-  success: true;
-}
-
-export interface ApiFailure {
-  code?: number | string;
-  error?: string;
-  message?: string;
-  success?: false;
-}
-
-export type ApiResponse<T> = ApiFailure | ApiSuccess<T> | T;
+// 响应外壳类型已归入 http 套件，这里保留同名导出以兼容既有引用。
+export type { ApiFailure, ApiResponse, ApiSuccess } from "@/api/http/types";
 
 export interface CurrentUser {
   admin_level?: null | string;
@@ -20,6 +9,7 @@ export interface CurrentUser {
   department_id?: null | number;
   email?: string;
   id: number | string;
+  is_active?: boolean | number;
   is_system?: boolean;
   role: string;
   username: string;
@@ -30,23 +20,14 @@ export interface LoginPayload {
   username: string;
 }
 
-export interface LoginResult {
-  accessToken: string;
-  expires?: string;
-  refreshExpires?: string;
-  refreshToken?: string;
-  tokenType?: "Bearer";
-  user?: CurrentUser;
-}
-
-export interface TokenRefreshPayload {
-  refreshToken: string;
-}
-
-export interface TokenRefreshResult {
+export interface AuthSessionResult {
   accessToken: string;
   expires: string;
-  refreshExpires: string;
-  refreshToken: string;
+  sessionExpires: string;
   tokenType: "Bearer";
+  user: CurrentUser;
 }
+
+export type LoginResult = AuthSessionResult;
+
+export type TokenRefreshResult = AuthSessionResult;

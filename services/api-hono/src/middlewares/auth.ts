@@ -1,6 +1,11 @@
+import { AUTH_ERROR_CODES } from '@admin-backend-3/admin-api-contract/auth';
+import { JwtTokenExpired } from 'hono/utils/jwt/types';
 import { isSuperAdmin } from './permissions';
 import { DatabaseWrapper } from '../models/database';
 import { createUserPayload, verifyAuthToken } from '../services/tokens';
+import { authError } from '../services/auth-responses';
+import { revokeRefreshSessionsForUser } from '../services/refresh-sessions';
+import { logger } from '../utils/logger';
 
 /**
  * 获取 JWT 密钥
@@ -10,8 +15,8 @@ import { createUserPayload, verifyAuthToken } from '../services/tokens';
  */
 export const getJWTSecret = (env: any): string => {
   const secret = env?.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is not configured in environment');
+  if (typeof secret !== 'string' || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters');
   }
   return secret;
 };
@@ -28,7 +33,7 @@ export const authMiddleware = async (c: any, next: any) => {
 
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
-    return c.json({ error: '未授权访问' }, 401);
+    return authError(c, 401, AUTH_ERROR_CODES.authRequired, '请先登录');
   }
 
   const token = authHeader.replace('Bearer ', '');
@@ -37,17 +42,42 @@ export const authMiddleware = async (c: any, next: any) => {
   try {
     payload = await verifyAuthToken(token, getJWTSecret(c.env), 'access');
   } catch (error) {
-    return c.json({ error: 'Token无效' }, 401);
+    if (error instanceof JwtTokenExpired) {
+      return authError(
+        c,
+        401,
+        AUTH_ERROR_CODES.accessTokenExpired,
+        '登录凭证已过期'
+      );
+    }
+
+    return authError(
+      c,
+      401,
+      AUTH_ERROR_CODES.accessTokenInvalid,
+      '登录凭证无效'
+    );
   }
 
   const db = new DatabaseWrapper(c.env.DB);
   const currentUser = await db.get(
-    'SELECT id, username, role, admin_level, created_by FROM users WHERE id = ?',
+    'SELECT id, username, role, admin_level, created_by, is_active FROM users WHERE id = ?',
     [payload.id]
   );
 
-  if (!currentUser) {
-    return c.json({ error: '用户不存在或已被删除' }, 401);
+  if (!currentUser || Number(currentUser.is_active) !== 1) {
+    try {
+      await revokeRefreshSessionsForUser(c.env.DB, payload.id, 'account-unavailable');
+    } catch (error) {
+      logger.error('Failed to revoke unavailable account sessions', error);
+    }
+
+    return authError(
+      c,
+      401,
+      AUTH_ERROR_CODES.accountUnavailable,
+      '用户不存在、已停用或已删除'
+    );
   }
 
   c.set('user', createUserPayload(currentUser));
@@ -62,7 +92,7 @@ export const authMiddleware = async (c: any, next: any) => {
 export const adminMiddleware = async (c: any, next: any) => {
   const user = c.get('user');
   if (user.role !== 'admin') {
-    return c.json({ error: '权限不足，仅管理员可操作' }, 403);
+    return authError(c, 403, AUTH_ERROR_CODES.forbidden, '权限不足，仅管理员可操作');
   }
   await next();
 };
@@ -75,7 +105,7 @@ export const adminMiddleware = async (c: any, next: any) => {
 export const superAdminMiddleware = async (c: any, next: any) => {
   const user = c.get('user');
   if (!isSuperAdmin(user)) {
-    return c.json({ error: '权限不足，仅总管理员可操作' }, 403);
+    return authError(c, 403, AUTH_ERROR_CODES.forbidden, '权限不足，仅总管理员可操作');
   }
   await next();
 };

@@ -70,6 +70,7 @@
 | CSS 布局：后台面板布局最佳实践       | [docs/architecture/css-admin-layout-best-practices.md](docs/architecture/css-admin-layout-best-practices.md)   |
 | 主题系统：偏好设置与 CSS Token       | [docs/architecture/theme-preferences-and-css-tokens.md](docs/architecture/theme-preferences-and-css-tokens.md) |
 | 请求层：Axios + Pinia Colada         | [docs/request/axios-pinia-colada.md](docs/request/axios-pinia-colada.md)                                       |
+| 认证体系：双 Token 会话与刷新判断    | [docs/auth/dual-token-session.md](docs/auth/dual-token-session.md)                                             |
 | 登录接口：为什么使用 mutation        | [docs/auth/login-mutation.md](docs/auth/login-mutation.md)                                                     |
 | 路由系统：静态路由、守卫与 RBAC 菜单 | [docs/router/route-guard-rbac.md](docs/router/route-guard-rbac.md)                                             |
 | 状态管理：Pinia 与 Pinia Colada 边界 | [docs/state/pinia-vs-pinia-colada.md](docs/state/pinia-vs-pinia-colada.md)                                     |
@@ -128,11 +129,11 @@ pnpm fix:page
 
 ### 请求与状态基线
 
-| 层级         | 当前工具     | 说明                                                    |
-| ------------ | ------------ | ------------------------------------------------------- |
-| HTTP 传输层  | Axios        | 负责请求发送、Token 注入、双 Token 自动刷新、错误归一化 |
-| 服务端状态层 | Pinia Colada | 负责接口数据查询缓存、去重、刷新和失效                  |
-| 客户端状态层 | Pinia        | 负责登录态、用户、权限、布局等本地状态                  |
+| 层级         | 当前工具     | 说明                                                   |
+| ------------ | ------------ | ------------------------------------------------------ |
+| HTTP 传输层  | Axios        | 负责请求发送、内存 Token 注入、Cookie 刷新、错误归一化 |
+| 服务端状态层 | Pinia Colada | 负责接口数据查询缓存、去重、刷新和失效                 |
+| 客户端状态层 | Pinia        | 负责登录态、用户、权限、布局等本地状态                 |
 
 `page` 已经完成 Pinia Colada 基础接入，并保留同名 `auth` query/mutation key 作为学习样板。登录页现在通过 `auth.login` mutation 调用登录接口。
 

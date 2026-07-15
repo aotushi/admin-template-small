@@ -13,7 +13,8 @@ export {
   type AuthRefreshReason,
   type AuthSessionCoordinatorOptions,
 } from "@/api/http/auth-session-coordinator";
-export { createHttpClientContext, HttpClient, type HttpClientContext } from "@/api/http/client";
+export { HttpClient } from "@/api/http/client";
+export { createHttpClientContext, type HttpClientContext } from "@/api/http/context";
 export { createHttpConfig } from "@/api/http/config";
 export {
   ApiError,

@@ -4,9 +4,19 @@ import type { CurrentUser } from "@/api/types";
 import { createMenuItems } from "@/router/menu";
 import { appRoutes } from "@/router/routes";
 
+// permissions 对齐迁移 019/020 的角色种子：super 全量、sub 管理员含用户查看
 const superUser: CurrentUser = {
   admin_level: "super",
   id: 1,
+  permissions: [
+    "system:dept:view",
+    "system:role:update",
+    "system:role:view",
+    "system:user:create",
+    "system:user:delete",
+    "system:user:update",
+    "system:user:view",
+  ],
   role: "admin",
   username: "vben",
 };
@@ -14,6 +24,7 @@ const superUser: CurrentUser = {
 const adminUser: CurrentUser = {
   admin_level: "sub",
   id: 2,
+  permissions: ["system:dept:view", "system:user:create", "system:user:update", "system:user:view"],
   role: "admin",
   username: "admin",
 };

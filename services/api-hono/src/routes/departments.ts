@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
+import { PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
 import type { Env } from '../index';
-import { adminMiddleware, authMiddleware } from '../middlewares/auth';
+import { authMiddleware } from '../middlewares/auth';
+import { requirePermission } from '../services/permissions';
 import { DatabaseWrapper } from '../models/database';
 import { logger } from '../utils/logger';
 
@@ -16,7 +18,7 @@ interface DepartmentNode {
 
 const departments = new Hono<{ Bindings: Env }>();
 
-departments.get('/tree', authMiddleware, adminMiddleware, async c => {
+departments.get('/tree', authMiddleware, requirePermission(PERMISSION_CODES.systemDeptView), async c => {
   try {
     const db = new DatabaseWrapper(c.env.DB);
     const rows = await db.all(`

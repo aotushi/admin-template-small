@@ -24,6 +24,7 @@ import {
 } from '../services/auth-cookies';
 import { isTrustedBrowserOrigin } from '../config/origins';
 import { authError, setAuthResponseNoStore } from '../services/auth-responses';
+import { resolveUserAccess, syncUserRoleBinding } from '../services/permissions';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -32,7 +33,7 @@ auth.use('*', async (c, next) => {
   await next();
 });
 
-function serializeUser(user: any) {
+function serializeUser(user: any, permissions: string[] = []) {
   return {
     id: user.id,
     username: user.username,
@@ -42,8 +43,16 @@ function serializeUser(user: any) {
     department_id: user.department_id,
     is_active: Boolean(user.is_active),
     is_system: Boolean(user.is_system),
-    created_by: user.created_by
+    created_by: user.created_by,
+    // RBAC 权限码：前端按钮显隐 / 路由 meta.permission 消费
+    permissions
   };
+}
+
+// 每次下发都从 D1 实时解析（不进 JWT），改权限后刷新令牌即可生效
+async function loadPermissionCodes(db: D1Database, userId: number) {
+  const access = await resolveUserAccess(db, userId);
+  return [...access.permissionCodes].sort();
 }
 
 function sessionExpiresAt(expiresAt: number) {
@@ -122,6 +131,8 @@ auth.post('/login', async c => {
     setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
     timings.jwtSign = Date.now() - jwtStart;
 
+    const permissions = await loadPermissionCodes(c.env.DB, user.id);
+
     timings.total = Date.now() - startTime;
 
     return c.json({
@@ -129,7 +140,7 @@ auth.post('/login', async c => {
       data: {
         ...access,
         sessionExpires: sessionExpiresAt(refreshSession.absoluteExpiresAt),
-        user: serializeUser(user),
+        user: serializeUser(user, permissions),
         ...(c.env.ENVIRONMENT === 'development' && { _timings: timings })
       }
     });
@@ -186,13 +197,14 @@ auth.post('/refresh', async c => {
 
     const access = await createAccessToken(createUserPayload(user), jwtSecret);
     setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
+    const permissions = await loadPermissionCodes(c.env.DB, user.id);
 
     return c.json({
       success: true,
       data: {
         ...access,
         sessionExpires: sessionExpiresAt(refreshSession.absoluteExpiresAt),
-        user: serializeUser(user)
+        user: serializeUser(user, permissions)
       }
     });
   } catch (error) {
@@ -315,6 +327,14 @@ auth.post('/register', async c => {
       [username, hashedPassword, role, email, role === 'admin' ? 'sub' : null, payload.id]
     );
 
+    // 同步 RBAC 角色绑定（缺失时新用户无任何权限码）
+    await syncUserRoleBinding(
+      db,
+      result.meta?.last_row_id || result.lastInsertRowid,
+      role,
+      role === 'admin' ? 'sub' : null
+    );
+
     return c.json({
       success: true,
       data: {
@@ -345,9 +365,11 @@ auth.get('/profile', async c => {
       return c.json({ error: '用户不存在' }, 404);
     }
 
+    const permissions = await loadPermissionCodes(c.env.DB, payload.id);
+
     return c.json({
       success: true,
-      data: user
+      data: { ...user, permissions }
     });
   } catch (error) {
     logger.error('Profile error', error);

@@ -11,6 +11,8 @@ export interface CurrentUser {
   id: number | string;
   is_active?: boolean | number;
   is_system?: boolean;
+  /** RBAC 权限码（后端 login/refresh/profile 下发），按钮显隐与路由 meta.permission 消费 */
+  permissions?: string[];
   role: string;
   username: string;
 }

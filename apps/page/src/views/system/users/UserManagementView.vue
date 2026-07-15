@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { computed, reactive, shallowRef, watch } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
+import { PERMISSION_CODES } from "@admin-backend-3/admin-api-contract/permissions";
 
-import type { AdminUserListItem } from "@/api/modules/users";
+import type { AdminUserListItem, CreateUserPayload, UpdateUserPayload } from "@/api/modules/users";
 import { getApiErrorMessage } from "@/api/request";
 import { AdminDataTable } from "@/components/common";
-import { useDepartmentsTreeQuery, useUsersListQuery } from "@/queries/users";
+import {
+  useCreateUserMutation,
+  useDeleteUserMutation,
+  useDepartmentsTreeQuery,
+  useUpdateUserMutation,
+  useUsersListQuery,
+} from "@/queries/users";
+import { useAuthStore } from "@/stores/auth";
 import UserDepartmentPanel from "./components/UserDepartmentPanel.vue";
+import UserFormDialog, { type UserFormValue } from "./components/UserFormDialog.vue";
 import UserSearchPanel from "./components/UserSearchPanel.vue";
+import { toRoleFields, toRoleOption } from "./userRoleOptions";
 import type { UserFilters } from "./types";
 import { ALL_DEPARTMENTS_KEY, getSelectedDepartmentIds } from "./departmentTree";
 import {
@@ -21,8 +31,12 @@ import {
 } from "./userFilters";
 import { userTableColumns } from "./userTableColumns";
 
+const authStore = useAuthStore();
 const usersQuery = useUsersListQuery();
 const departmentsQuery = useDepartmentsTreeQuery();
+const createUserMutation = useCreateUserMutation();
+const updateUserMutation = useUpdateUserMutation();
+const deleteUserMutation = useDeleteUserMutation();
 const filters = reactive<UserFilters>(createDefaultUserFilters());
 const currentPage = shallowRef(1);
 const pageSize = shallowRef(10);
@@ -101,8 +115,77 @@ function toggleSearchPanel() {
   searchPanelVisible.value = !searchPanelVisible.value;
 }
 
-function showDeferredFeature(featureName: string) {
-  ElMessage.info(`${featureName}将在 CRUD 和权限按钮阶段接入`);
+const dialogVisible = shallowRef(false);
+const dialogMode = shallowRef<"create" | "edit">("create");
+const editingUser = shallowRef<AdminUserListItem | null>(null);
+// 角色分配是总管理员专属规则（后端同样校验），与权限码判定互补
+const canAssignRole = computed(() => authStore.accessRole === "super");
+const dialogSubmitting = computed(
+  () =>
+    createUserMutation.asyncStatus.value === "loading" ||
+    updateUserMutation.asyncStatus.value === "loading",
+);
+
+function openCreateDialog() {
+  dialogMode.value = "create";
+  editingUser.value = null;
+  dialogVisible.value = true;
+}
+
+function openEditDialog(user: AdminUserListItem) {
+  dialogMode.value = "edit";
+  editingUser.value = user;
+  dialogVisible.value = true;
+}
+
+async function handleDialogSubmit(value: UserFormValue) {
+  try {
+    if (dialogMode.value === "create") {
+      const payload: CreateUserPayload = {
+        password: value.password,
+        username: value.username,
+        ...toRoleFields(value.roleOption),
+      };
+      if (value.email) {
+        payload.email = value.email;
+      }
+      await createUserMutation.mutateAsync(payload);
+      ElMessage.success("用户创建成功");
+    } else if (editingUser.value) {
+      const payload: UpdateUserPayload = { email: value.email };
+      if (value.password) {
+        payload.password = value.password;
+      }
+      // 只有总管理员且角色确有变化时才提交角色字段（后端拒绝非 super 的角色变更）
+      if (canAssignRole.value && value.roleOption !== toRoleOption(editingUser.value)) {
+        Object.assign(payload, toRoleFields(value.roleOption));
+      }
+      await updateUserMutation.mutateAsync({ payload, userId: editingUser.value.id });
+      ElMessage.success("用户更新成功");
+    }
+    dialogVisible.value = false;
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error));
+  }
+}
+
+async function handleDelete(user: AdminUserListItem) {
+  const confirmed = await ElMessageBox.confirm(
+    `确定删除用户「${user.username}」吗？该操作不可恢复。`,
+    "删除用户",
+    { cancelButtonText: "取消", confirmButtonText: "删除", type: "warning" },
+  ).catch(() => false);
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await deleteUserMutation.mutateAsync(user.id);
+    ElMessage.success("用户删除成功");
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error));
+  }
 }
 </script>
 
@@ -166,8 +249,13 @@ function showDeferredFeature(featureName: string) {
         @toggle-search="toggleSearchPanel"
       >
         <template #toolbarActions>
-          <ElButton :icon="Plus" type="primary" @click="showDeferredFeature('新增用户')">
-            新增用户名
+          <ElButton
+            v-permission="PERMISSION_CODES.systemUserCreate"
+            :icon="Plus"
+            type="primary"
+            @click="openCreateDialog"
+          >
+            新增用户
           </ElButton>
         </template>
 
@@ -190,20 +278,25 @@ function showDeferredFeature(featureName: string) {
           </ElTag>
         </template>
 
-        <template #cell-actions>
-          <ElTooltip content="编辑功能将在 CRUD 阶段接入" placement="top">
-            <span>
-              <ElButton disabled link type="primary">编辑</ElButton>
-            </span>
-          </ElTooltip>
-          <ElTooltip content="删除功能将在 CRUD 阶段接入" placement="top">
-            <span>
-              <ElButton disabled link type="danger">删除</ElButton>
-            </span>
-          </ElTooltip>
+        <template #cell-actions="{ row }: { row: AdminUserListItem }">
+          <span v-permission="PERMISSION_CODES.systemUserUpdate">
+            <ElButton link type="primary" @click="openEditDialog(row)">编辑</ElButton>
+          </span>
+          <span v-permission="PERMISSION_CODES.systemUserDelete">
+            <ElButton link type="danger" @click="handleDelete(row)">删除</ElButton>
+          </span>
         </template>
       </AdminDataTable>
     </section>
+
+    <UserFormDialog
+      v-model:visible="dialogVisible"
+      :can-assign-role="canAssignRole"
+      :mode="dialogMode"
+      :submitting="dialogSubmitting"
+      :user="editingUser"
+      @submit="handleDialogSubmit"
+    />
   </main>
 </template>
 

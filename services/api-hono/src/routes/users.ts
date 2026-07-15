@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import * as bcrypt from 'bcryptjs';
+import { PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
 import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import {
@@ -9,6 +10,12 @@ import {
   canManageUser
 } from '../middlewares/permissions';
 import { authMiddleware, adminMiddleware } from '../middlewares/auth';
+import {
+  buildUsersScopeCondition,
+  getUserAccess,
+  requirePermission,
+  syncUserRoleBinding
+} from '../services/permissions';
 import { getCurrentShanghaiTime, toBeijingTime } from '../utils/datetime';
 import { logger } from '../utils/logger';
 import { normalizeUrl } from '../utils/data-processor';
@@ -16,8 +23,8 @@ import { maskUrl } from '../utils/mask';
 
 const users = new Hono<{ Bindings: Env }>();
 
-// 获取所有用户列表 (仅管理员)
-users.get('/list', authMiddleware, adminMiddleware, async c => {
+// 获取所有用户列表（需 system:user:view 权限，行级可见性由角色数据范围决定）
+users.get('/list', authMiddleware, requirePermission(PERMISSION_CODES.systemUserView), async c => {
   try {
     const db = new DatabaseWrapper(c.env.DB);
     const currentUser = c.get('user');
@@ -44,14 +51,13 @@ users.get('/list', authMiddleware, adminMiddleware, async c => {
       LEFT JOIN departments parent_department ON department.parent_id = parent_department.id
     `;
 
-    const params: any[] = [];
-
-    // 子管理员只能看到自己创建的用户
-    if (isSubAdmin(currentUser)) {
-      query += ` WHERE u.created_by = ?`;
-      params.push(currentUser.id);
+    // 显式数据范围：all 不限制 / dept 部门子树 / self 仅自己创建
+    const access = await getUserAccess(c);
+    const scope = buildUsersScopeCondition(access, currentUser.id);
+    const params: any[] = [...scope.params];
+    if (scope.condition) {
+      query += ` WHERE ${scope.condition}`;
     }
-    // 总管理员可以看到所有用户（不添加WHERE条件）
 
     query += ` ORDER BY u.created_at DESC`;
 
@@ -99,8 +105,8 @@ users.get('/search', authMiddleware, adminMiddleware, async c => {
   }
 });
 
-// 创建新用户
-users.post('/create', authMiddleware, adminMiddleware, async c => {
+// 创建新用户（需 system:user:create 权限）
+users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemUserCreate), async c => {
   try {
     const {
       username,
@@ -243,6 +249,9 @@ users.post('/create', authMiddleware, adminMiddleware, async c => {
     );
 
     const userId = result.meta?.last_row_id || result.lastInsertRowid;
+
+    // 同步 RBAC 角色绑定（缺失时新用户无任何权限码）
+    await syncUserRoleBinding(db, userId, userRole, userAdminLevel);
 
     // 处理产品配置（仅普通用户）
     const createdProducts = [];
@@ -412,6 +421,9 @@ users.post('/create-or-get', authMiddleware, adminMiddleware, async c => {
 
     const userId = result.meta?.last_row_id || result.lastInsertRowid;
 
+    // 同步 RBAC 角色绑定（缺失时新用户无任何权限码）
+    await syncUserRoleBinding(db, userId, 'user', null);
+
     user = {
       id: userId,
       username,
@@ -545,8 +557,8 @@ users.get('/:userId/data', authMiddleware, async c => {
   }
 });
 
-// 更新用户信息 (仅管理员)
-users.put('/:userId', authMiddleware, adminMiddleware, async c => {
+// 更新用户信息（需 system:user:update 权限；行级归属仍由 canManageUser 二次校验）
+users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemUserUpdate), async c => {
   try {
     const userId = parseInt(c.req.param('userId'));
     const payload = await c.req.json();
@@ -698,6 +710,11 @@ users.put('/:userId', authMiddleware, adminMiddleware, async c => {
       params.push(userId);
       const updateQuery = `UPDATE users SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
       await db.run(updateQuery, params);
+    }
+
+    // 角色变更后重同步 RBAC 绑定（下次刷新令牌生效）
+    if (changesAccess) {
+      await syncUserRoleBinding(db, userId, nextRole, nextAdminLevel);
     }
 
     // 处理产品配置更新（完全替换模式）
@@ -1075,8 +1092,8 @@ users.put('/:userId', authMiddleware, adminMiddleware, async c => {
   }
 });
 
-// 删除用户 (仅总管理员)
-users.delete('/:userId', authMiddleware, adminMiddleware, async c => {
+// 删除用户（需 system:user:delete 权限，种子中仅 super 持有；canDeleteUser 继续拦自删/系统账户）
+users.delete('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemUserDelete), async c => {
   try {
     const userId = parseInt(c.req.param('userId'));
     const currentUser = c.get('user');

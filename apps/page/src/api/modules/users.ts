@@ -26,10 +26,38 @@ export interface AdminDepartmentTreeItem {
   user_count: number;
 }
 
+/** 前端角色选项与后端 role/admin_level 的映射见 userRoleOptions.ts */
+export interface CreateUserPayload {
+  admin_level?: null | "sub" | "super";
+  email?: string;
+  password: string;
+  role?: "admin" | "user";
+  username: string;
+}
+
+export interface UpdateUserPayload {
+  admin_level?: null | "sub" | "super";
+  email?: string;
+  password?: string;
+  role?: "admin" | "user";
+}
+
 export function getUsersApi() {
   return requestClient.get<AdminUserListItem[]>("/api/users/list");
 }
 
 export function getDepartmentsTreeApi() {
   return requestClient.get<AdminDepartmentTreeItem[]>("/api/departments/tree");
+}
+
+export function createUserApi(payload: CreateUserPayload) {
+  return requestClient.post<AdminUserListItem, CreateUserPayload>("/api/users/create", payload);
+}
+
+export function updateUserApi(userId: number | string, payload: UpdateUserPayload) {
+  return requestClient.put<null, UpdateUserPayload>(`/api/users/${userId}`, payload);
+}
+
+export function deleteUserApi(userId: number | string) {
+  return requestClient.delete<null>(`/api/users/${userId}`);
 }

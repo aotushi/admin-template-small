@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from "vue-router";
+import { PERMISSION_CODES } from "@admin-backend-3/admin-api-contract/permissions";
 
 import "@/router/types";
 
@@ -328,8 +329,8 @@ export const appRoutes: RouteRecordRaw[] = [
         meta: {
           icon: "UserFilled",
           order: 10,
-          permissions: ["system:users:manage"],
-          roles: ["super", "admin"],
+          // meta.permission 样板：由后端下发的权限码判定访问，roles 不再参与本路由
+          permission: PERMISSION_CODES.systemUserView,
           title: "用户管理",
         },
         name: "SystemUsers",
@@ -359,11 +360,10 @@ export const appRoutes: RouteRecordRaw[] = [
         path: "user-data/:userId",
       },
       {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
+        component: () => import("@/views/system/roles/RoleManagementView.vue"),
         meta: {
           order: 30,
-          permissions: ["system:roles:manage"],
-          roles: ["super"],
+          permission: PERMISSION_CODES.systemRoleView,
           title: "角色管理",
         },
         name: "SystemRoles",

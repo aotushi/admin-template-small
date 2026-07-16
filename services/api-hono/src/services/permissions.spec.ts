@@ -105,6 +105,30 @@ describe('requirePermission', () => {
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('FORBIDDEN');
   });
+
+  it('传数组时任一权限码命中即放行', async () => {
+    const app = new Hono();
+    app.use('*', async (c, next) => {
+      c.set('user' as never, { id: 1, role: 'admin', username: 'tester' } as never);
+      await next();
+    });
+    app.get(
+      '/',
+      requirePermission([
+        PERMISSION_CODES.systemDeptView,
+        PERMISSION_CODES.systemUserView
+      ]),
+      c => c.json({ success: true })
+    );
+
+    const response = await app.request('http://localhost/', {}, {
+      DB: createDatabase([
+        { code: 'system:user:view', data_scope: 'self', department_id: null }
+      ])
+    });
+
+    expect(response.status).toBe(200);
+  });
 });
 
 describe('toRoleCode', () => {

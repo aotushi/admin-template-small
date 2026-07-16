@@ -17,3 +17,6 @@ remote-backup.sql
 Thumbs.db
 
 .tmp-*
+
+# D1 远程导出备份（含敏感数据，禁止入库）
+services/api-hono/backups/

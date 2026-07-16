@@ -34,8 +34,9 @@ interface AccessRow {
 const ACCESS_CONTEXT_KEY = 'userAccess';
 
 /**
- * 一次查询取回：用户部门 + 所有角色的数据范围 + 所有角色的权限码。
- * 无任何角色的用户得到空权限集 + self 范围（最小权限兜底）。
+ * 一次查询取回：用户部门 + 所有角色的数据范围 + 所有角色绑定菜单的权限码。
+ * 权限载体是 menus 树表（迁移 021）：只取启用角色 × 启用菜单的非空 auth_code；
+ * 停用角色/菜单即时失效。无任何角色的用户得到空权限集 + self 范围（最小权限兜底）。
  */
 export async function resolveUserAccess(
   db: D1Database,
@@ -43,12 +44,12 @@ export async function resolveUserAccess(
 ): Promise<UserAccess> {
   const { results } = await db
     .prepare(
-      `SELECT u.department_id, r.data_scope, p.code
+      `SELECT u.department_id, r.data_scope, m.auth_code AS code
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
-       LEFT JOIN roles r ON r.id = ur.role_id
-       LEFT JOIN role_permissions rp ON rp.role_id = r.id
-       LEFT JOIN permissions p ON p.id = rp.permission_id
+       LEFT JOIN roles r ON r.id = ur.role_id AND r.status = 1
+       LEFT JOIN role_menus rm ON rm.role_id = r.id
+       LEFT JOIN menus m ON m.id = rm.menu_id AND m.status = 1 AND m.auth_code IS NOT NULL
        WHERE u.id = ?`
     )
     .bind(userId)
@@ -92,13 +93,15 @@ export async function getUserAccess(c: any): Promise<UserAccess> {
 
 /**
  * 权限码中间件工厂：缺少指定权限码时返回 403。
+ * 传数组表示"任一命中即放行"（如部门树接口对 user:view / dept:view 都开放）。
  * 用法：users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemUserCreate), ...)
  */
-export function requirePermission(code: PermissionCode) {
+export function requirePermission(code: PermissionCode | readonly PermissionCode[]) {
+  const codes = Array.isArray(code) ? code : [code];
   return async (c: any, next: any) => {
     const access = await getUserAccess(c);
-    if (!access.permissionCodes.has(code)) {
-      return authError(c, 403, AUTH_ERROR_CODES.forbidden, `权限不足（${code}）`);
+    if (!codes.some(item => access.permissionCodes.has(item))) {
+      return authError(c, 403, AUTH_ERROR_CODES.forbidden, `权限不足（${codes.join(' / ')}）`);
     }
     await next();
   };

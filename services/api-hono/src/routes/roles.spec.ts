@@ -15,21 +15,16 @@ const ACTIVE_USER = {
   username: 'vben'
 };
 
-const PERMISSION_CATALOG = [
-  { code: 'system:user:view', id: 1, name: '用户管理-查看', type: 'menu' },
-  { code: 'system:role:view', id: 6, name: '角色管理-查看', type: 'menu' },
-  { code: 'system:role:update', id: 7, name: '角色管理-编辑', type: 'button' }
-];
-
 interface FakeDbOptions {
   accessCodes: string[];
+  knownMenuIds?: number[];
   onRun?: (statement: string, params: unknown[]) => void;
-  role?: null | { code: string; id: number };
+  role?: null | { code: string; id: number; user_count?: number };
 }
 
 // 按 SQL 语句分发的假 D1：覆盖 authMiddleware、权限解析和 roles 路由的全部查询
 function createDatabase(options: FakeDbOptions) {
-  const { accessCodes, onRun, role } = options;
+  const { accessCodes, knownMenuIds = [1, 2, 3], onRun, role } = options;
 
   return {
     prepare(statement: string) {
@@ -37,8 +32,11 @@ function createDatabase(options: FakeDbOptions) {
         bind(...params: unknown[]) {
           return {
             async first() {
-              if (statement.includes('FROM roles WHERE id')) {
-                return role ?? null;
+              if (statement.includes('FROM roles')) {
+                if (!role) {
+                  return null;
+                }
+                return { user_count: 0, ...role };
               }
               return ACTIVE_USER;
             },
@@ -53,24 +51,26 @@ function createDatabase(options: FakeDbOptions) {
                   success: true
                 };
               }
-              if (statement.includes('SELECT code FROM permissions')) {
+              if (statement.includes('FROM menus WHERE id IN')) {
                 return {
-                  results: PERMISSION_CATALOG.map(({ code }) => ({ code })),
+                  results: knownMenuIds
+                    .filter(id => params.includes(id))
+                    .map(id => ({ id })),
                   success: true
                 };
-              }
-              if (statement.includes('FROM permissions ORDER BY')) {
-                return { results: PERMISSION_CATALOG, success: true };
               }
               // 角色列表聚合查询
               return {
                 results: [
                   {
                     code: 'admin',
+                    created_at: '2026-07-01 00:00:00',
                     data_scope: 'self',
                     id: 2,
+                    menu_ids: '3,1,2',
                     name: '子管理员',
-                    permission_codes: 'system:user:view,system:role:view',
+                    remark: null,
+                    status: 1,
                     user_count: 6
                   }
                 ],
@@ -79,7 +79,7 @@ function createDatabase(options: FakeDbOptions) {
             },
             async run() {
               onRun?.(statement, params);
-              return { meta: {}, success: true };
+              return { meta: { last_row_id: 9 }, success: true };
             }
           };
         }
@@ -116,16 +116,17 @@ async function request(
 }
 
 describe('GET /roles', () => {
-  it('返回角色列表（权限码解析为数组）和权限点目录', async () => {
+  it('返回角色列表（菜单绑定解析为升序 id 数组）', async () => {
     const response = await request({ accessCodes: ['system:role:view'] }, '/');
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as any;
-    expect(body.data.permissions).toHaveLength(3);
     expect(body.data.roles[0]).toMatchObject({
       code: 'admin',
       data_scope: 'self',
-      permission_codes: ['system:role:view', 'system:user:view'],
+      menu_ids: [1, 2, 3],
+      remark: '',
+      status: 1,
       user_count: 6
     });
   });
@@ -133,6 +134,43 @@ describe('GET /roles', () => {
   it('缺少 system:role:view 时 403', async () => {
     const response = await request({ accessCodes: ['system:user:view'] }, '/');
     expect(response.status).toBe(403);
+  });
+});
+
+describe('POST /roles', () => {
+  it('创建角色：插入后把 code 重写为 role_<id> 并绑定菜单', async () => {
+    const runs: Array<{ params: unknown[]; statement: string }> = [];
+    const response = await request(
+      {
+        accessCodes: ['system:role:create'],
+        onRun: (statement, params) => runs.push({ params, statement })
+      },
+      '/',
+      {
+        body: JSON.stringify({ menu_ids: [1, 2], name: '运营' }),
+        method: 'POST'
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as any;
+    expect(body.data.id).toBe(9);
+
+    expect(runs[0].statement).toContain('INSERT INTO roles');
+    expect(runs[0].params).toEqual(['运营', 1, null, 'self']);
+    expect(runs[1].statement).toContain("code = 'role_' || id");
+    expect(runs[2].statement).toContain('DELETE FROM role_menus');
+    expect(runs[3].params).toEqual([9, 1]);
+    expect(runs[4].params).toEqual([9, 2]);
+  });
+
+  it('名称为空返回 400', async () => {
+    const response = await request(
+      { accessCodes: ['system:role:create'] },
+      '/',
+      { body: JSON.stringify({ name: '  ' }), method: 'POST' }
+    );
+    expect(response.status).toBe(400);
   });
 });
 
@@ -144,31 +182,27 @@ describe('PUT /roles/:roleId', () => {
         role: { code: 'super', id: 1 }
       },
       '/1',
-      { body: JSON.stringify({ data_scope: 'self' }), method: 'PUT' }
+      { body: JSON.stringify({ status: 0 }), method: 'PUT' }
     );
 
     expect(response.status).toBe(403);
   });
 
-  it('拒绝未知权限码', async () => {
+  it('拒绝不存在的菜单 id', async () => {
     const response = await request(
       {
         accessCodes: ['system:role:update'],
+        knownMenuIds: [1, 2],
         role: { code: 'admin', id: 2 }
       },
       '/2',
-      {
-        body: JSON.stringify({ permission_codes: ['system:not:exists'] }),
-        method: 'PUT'
-      }
+      { body: JSON.stringify({ menu_ids: [1, 99] }), method: 'PUT' }
     );
 
     expect(response.status).toBe(400);
-    const body = (await response.json()) as { error: string };
-    expect(body.error).toContain('system:not:exists');
   });
 
-  it('重建 role_permissions 并更新 data_scope', async () => {
+  it('重建 role_menus 并更新基础字段', async () => {
     const runs: Array<{ params: unknown[]; statement: string }> = [];
     const response = await request(
       {
@@ -180,23 +214,22 @@ describe('PUT /roles/:roleId', () => {
       {
         body: JSON.stringify({
           data_scope: 'dept',
-          permission_codes: ['system:user:view', 'system:role:view']
+          menu_ids: [1, 3],
+          name: '子管理员',
+          remark: '本部门数据',
+          status: 1
         }),
         method: 'PUT'
       }
     );
 
     expect(response.status).toBe(200);
-    const writes = runs.filter(
-      ({ statement }) =>
-        statement.includes('role_permissions') || statement.includes('UPDATE roles')
-    );
-    expect(writes[0].statement).toContain('DELETE FROM role_permissions');
-    expect(writes[0].params).toEqual([2]);
-    expect(writes[1].params).toEqual([2, 'system:user:view']);
-    expect(writes[2].params).toEqual([2, 'system:role:view']);
-    expect(writes[3].statement).toContain('UPDATE roles SET data_scope');
-    expect(writes[3].params).toEqual(['dept', 2]);
+    expect(runs[0].statement).toContain('DELETE FROM role_menus');
+    expect(runs[0].params).toEqual([2]);
+    expect(runs[1].params).toEqual([2, 1]);
+    expect(runs[2].params).toEqual([2, 3]);
+    expect(runs[3].statement).toContain('UPDATE roles SET');
+    expect(runs[3].params).toEqual(['子管理员', 1, '本部门数据', 'dept', 2]);
   });
 
   it('无效数据范围返回 400', async () => {
@@ -210,5 +243,51 @@ describe('PUT /roles/:roleId', () => {
     );
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe('DELETE /roles/:roleId', () => {
+  it('super 角色不可删除', async () => {
+    const response = await request(
+      {
+        accessCodes: ['system:role:delete'],
+        role: { code: 'super', id: 1 }
+      },
+      '/1',
+      { method: 'DELETE' }
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it('仍有用户绑定时禁删', async () => {
+    const response = await request(
+      {
+        accessCodes: ['system:role:delete'],
+        role: { code: 'role_9', id: 9, user_count: 3 }
+      },
+      '/9',
+      { method: 'DELETE' }
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('删除角色时清理菜单绑定', async () => {
+    const runs: Array<{ params: unknown[]; statement: string }> = [];
+    const response = await request(
+      {
+        accessCodes: ['system:role:delete'],
+        onRun: (statement, params) => runs.push({ params, statement }),
+        role: { code: 'role_9', id: 9, user_count: 0 }
+      },
+      '/9',
+      { method: 'DELETE' }
+    );
+
+    expect(response.status).toBe(200);
+    expect(runs[0].statement).toContain('DELETE FROM role_menus');
+    expect(runs[1].statement).toContain('DELETE FROM roles');
+    expect(runs[1].params).toEqual([9]);
   });
 });

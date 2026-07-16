@@ -1,6 +1,8 @@
 name = "admin-backend-3-api-hono"
 main = "src/index.ts"
 compatibility_date = "2026-07-02"
+# Cloudflare Workers 兼容性标志（必须在顶层，写进 [vars] 段不生效）
+compatibility_flags = ["nodejs_compat"]
 account_id = "eff602d8715ddb9bcf1b4ba8b2ca0788"
 
 # wrangler.toml (wrangler v3.88.0^)
@@ -9,21 +11,18 @@ enabled = true
 
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://admin.9shi.cc"
-
-# Cloudflare Workers 兼容性标志
-compatibility_flags = ["nodejs_compat"]
+ALLOWED_ORIGINS = "https://admin3.9shi.cc"
 
 # 本地开发时使用SQLite，部署时将使用D1
 [[d1_databases]]
 binding = "DB"
-database_name = "admin-backend-db"
-database_id = "fced7ccd-3871-4dd6-a1f9-9278732d6922"
+database_name = "admin-template-small-db"
+database_id = "0d4b3f53-5450-4c4c-8a4f-5621c86e5e77"
 
-# Worker 路由
+# Worker 自定义域（自动管理 DNS 与证书）
 [[routes]]
-pattern = "api.9shi.cc/admin/*"
-zone_name = "9shi.cc"
+pattern = "api3.9shi.cc"
+custom_domain = true
 
 # 定时任务：
 # - UTC 00:00（北京时间08:00）：保存前一天每日数据统计到 D1

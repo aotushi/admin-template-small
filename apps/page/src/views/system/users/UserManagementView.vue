@@ -142,6 +142,7 @@ async function handleDialogSubmit(value: UserFormValue) {
   try {
     if (dialogMode.value === "create") {
       const payload: CreateUserPayload = {
+        department_id: value.departmentId,
         password: value.password,
         username: value.username,
         ...toRoleFields(value.roleOption),
@@ -152,7 +153,10 @@ async function handleDialogSubmit(value: UserFormValue) {
       await createUserMutation.mutateAsync(payload);
       ElMessage.success("用户创建成功");
     } else if (editingUser.value) {
-      const payload: UpdateUserPayload = { email: value.email };
+      const payload: UpdateUserPayload = {
+        department_id: value.departmentId,
+        email: value.email,
+      };
       if (value.password) {
         payload.password = value.password;
       }
@@ -292,6 +296,7 @@ async function handleDelete(user: AdminUserListItem) {
     <UserFormDialog
       v-model:visible="dialogVisible"
       :can-assign-role="canAssignRole"
+      :departments="departments"
       :mode="dialogMode"
       :submitting="dialogSubmitting"
       :user="editingUser"

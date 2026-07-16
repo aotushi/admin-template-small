@@ -29,6 +29,7 @@ export interface AdminDepartmentTreeItem {
 /** 前端角色选项与后端 role/admin_level 的映射见 userRoleOptions.ts */
 export interface CreateUserPayload {
   admin_level?: null | "sub" | "super";
+  department_id?: null | number;
   email?: string;
   password: string;
   role?: "admin" | "user";
@@ -37,6 +38,7 @@ export interface CreateUserPayload {
 
 export interface UpdateUserPayload {
   admin_level?: null | "sub" | "super";
+  department_id?: null | number;
   email?: string;
   password?: string;
   role?: "admin" | "user";

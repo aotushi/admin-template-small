@@ -2,10 +2,11 @@
 import { computed, reactive, watch } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 
-import type { AdminUserListItem } from "@/api/modules/users";
+import type { AdminDepartmentTreeItem, AdminUserListItem } from "@/api/modules/users";
 import { USER_ROLE_OPTIONS, toRoleOption, type UserRoleOption } from "../userRoleOptions";
 
 export interface UserFormValue {
+  departmentId: null | number;
   email: string;
   password: string;
   roleOption: UserRoleOption;
@@ -15,6 +16,8 @@ export interface UserFormValue {
 const props = defineProps<{
   /** 当前登录者是否可分配角色（仅总管理员） */
   canAssignRole: boolean;
+  /** 部门候选树（用户只能挂到末级部门，超级管理员不归属部门） */
+  departments: AdminDepartmentTreeItem[];
   mode: "create" | "edit";
   submitting: boolean;
   /** edit 模式的目标用户 */
@@ -28,6 +31,7 @@ const emit = defineEmits<{
 const visible = defineModel<boolean>("visible", { required: true });
 
 const form = reactive<UserFormValue>({
+  departmentId: null,
   email: "",
   password: "",
   roleOption: "user",
@@ -63,15 +67,32 @@ watch(visible, (nextVisible) => {
 
   form.password = "";
   if (isEdit.value && props.user) {
+    form.departmentId = props.user.department_id ?? null;
     form.email = props.user.email ?? "";
     form.roleOption = toRoleOption(props.user);
     form.username = props.user.username;
   } else {
+    form.departmentId = null;
     form.email = "";
     form.roleOption = "user";
     form.username = "";
   }
 });
+
+// 超级管理员不归属部门（与后端强制清空规则一致）
+watch(
+  () => form.roleOption,
+  (roleOption) => {
+    if (roleOption === "super") {
+      form.departmentId = null;
+    }
+  },
+);
+
+// 用户只能挂到末级部门（后端同样校验），非叶子节点仅作展开用
+function isDepartmentDisabled(data: AdminDepartmentTreeItem) {
+  return data.children.length > 0;
+}
 
 function setFormRef(instance: unknown) {
   formRef = instance as FormInstance | null;
@@ -119,6 +140,24 @@ async function handleSubmit() {
           />
         </ElSelect>
         <div v-if="!canAssignRole" class="user-form-dialog__hint">只有总管理员可以分配角色</div>
+      </ElFormItem>
+
+      <ElFormItem label="部门" prop="departmentId">
+        <ElTreeSelect
+          v-model="form.departmentId"
+          check-strictly
+          clearable
+          :data="departments"
+          default-expand-all
+          :disabled="form.roleOption === 'super'"
+          node-key="id"
+          placeholder="选填，仅可选择末级部门"
+          :props="{ children: 'children', disabled: isDepartmentDisabled, label: 'name' }"
+          style="width: 100%"
+        />
+        <div v-if="form.roleOption === 'super'" class="user-form-dialog__hint">
+          超级管理员不归属部门
+        </div>
       </ElFormItem>
     </ElForm>
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, shallowRef, watch } from "vue";
 
-import { AdminDataTable, AdminSearchPanel } from "@/components/common";
-import type { AdminTableColumn } from "@/components/common";
+import { AdminDataTable, AdminSearchForm } from "@/components/common";
+import type { AdminFormField, AdminFormModel, AdminTableColumn } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
 interface TableRow {
@@ -23,10 +23,29 @@ const columns = [
   { key: "status", label: "接入状态", minWidth: 120, slot: "status" },
 ] satisfies AdminTableColumn<TableRow>[];
 
+const searchFields: AdminFormField[] = [
+  { component: "input", key: "keyword", label: "组件名称" },
+  {
+    component: "select",
+    key: "status",
+    label: "接入状态",
+    options: [
+      { label: "已接入", value: "ready" },
+      { label: "规划中", value: "draft" },
+    ],
+  },
+];
+
+// 查询表单点"搜索"后才把值应用到列表筛选，与业务页的查询流程一致
 const filters = reactive({
   keyword: "",
   status: "",
 });
+
+function applyFilters(values: AdminFormModel) {
+  filters.keyword = String(values.keyword ?? "");
+  filters.status = String(values.status ?? "");
+}
 
 const rows: TableRow[] = [
   {
@@ -36,7 +55,7 @@ const rows: TableRow[] = [
     type: "生产表格",
   },
   {
-    component: "AdminSearchPanel",
+    component: "AdminSearchForm",
     scene: "用户管理 / 筛选区",
     status: "ready",
     type: "查询表单",
@@ -48,10 +67,10 @@ const rows: TableRow[] = [
     type: "树形筛选",
   },
   {
-    component: "ColumnSetting",
-    scene: "后续表格增强",
-    status: "draft",
-    type: "列配置",
+    component: "AdminFormDrawer",
+    scene: "系统管理 / 新增编辑抽屉",
+    status: "ready",
+    type: "抽屉表单",
   },
 ];
 
@@ -76,33 +95,18 @@ const pagedRows = computed(() => {
 watch([() => filters.keyword, () => filters.status, pageSize], () => {
   currentPage.value = 1;
 });
-
-function handleReset() {
-  filters.keyword = "";
-  filters.status = "";
-}
 </script>
 
 <template>
   <CommonExampleCard title="搜索表格">
     <div class="search-table-example">
-      <AdminSearchPanel v-show="searchPanelVisible" label-width="88px" panel-label="搜索表格筛选">
-        <ElFormItem label="组件名称">
-          <ElInput v-model="filters.keyword" clearable placeholder="请输入" />
-        </ElFormItem>
-
-        <ElFormItem label="接入状态">
-          <ElSelect v-model="filters.status" clearable placeholder="请选择">
-            <ElOption label="已接入" value="ready" />
-            <ElOption label="规划中" value="draft" />
-          </ElSelect>
-        </ElFormItem>
-
-        <ElFormItem class="search-table-example__actions" label=" ">
-          <ElButton @click="handleReset">重 置</ElButton>
-          <ElButton type="primary">搜 索</ElButton>
-        </ElFormItem>
-      </AdminSearchPanel>
+      <AdminSearchForm
+        v-show="searchPanelVisible"
+        :fields="searchFields"
+        panel-label="搜索表格筛选"
+        @reset="applyFilters"
+        @search="applyFilters"
+      />
 
       <AdminDataTable
         v-model:current-page="currentPage"
@@ -132,11 +136,5 @@ function handleReset() {
 .search-table-example {
   display: grid;
   gap: 16px;
-}
-
-.search-table-example__actions :deep(.el-form-item__content) {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 </style>

@@ -14,8 +14,9 @@ export function unwrapApiResponse<T>(response: AxiosResponse<ApiResponse<T>>): T
     return body as T;
   }
 
-  if ("success" in body && body.success === true && "data" in body) {
-    return body.data as T;
+  // success 为 true 即视为成功；写接口可能只带 message 不带 data
+  if ("success" in body && body.success === true) {
+    return ("data" in body ? body.data : null) as T;
   }
 
   if ("success" in body && body.success === false) {

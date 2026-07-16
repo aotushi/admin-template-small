@@ -34,28 +34,22 @@ const metrics = [
 const quickActions = computed(() =>
   [
     {
-      description: "导入 Excel 并生成可查询数据",
-      path: "/excel/upload",
-      roles: ["super", "admin"] as const,
-      title: "文件上传",
-    },
-    {
-      description: "查看每日和历史统计结果",
-      path: "/statistics/daily",
-      roles: ["super", "admin"] as const,
-      title: "数据统计",
-    },
-    {
       description: "维护用户、角色和权限边界",
       path: "/system/users",
       roles: ["super", "admin"] as const,
       title: "用户管理",
     },
     {
-      description: "查看个人 API Key 和接口说明",
-      path: "/api/my-keys",
+      description: "配置角色、菜单权限与数据范围",
+      path: "/system/roles",
+      roles: ["super"] as const,
+      title: "角色管理",
+    },
+    {
+      description: "查看通用列表、表单、树形组件范式",
+      path: "/components/table/basic",
       roles: ["super", "admin", "user"] as const,
-      title: "API 文档",
+      title: "公共组件",
     },
   ].filter((action) => hasAnyRole(user.value, action.roles)),
 );

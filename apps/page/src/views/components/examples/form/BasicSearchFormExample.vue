@@ -1,53 +1,65 @@
 <script setup lang="ts">
-import { reactive } from "vue";
+import { shallowRef } from "vue";
 
-import { AdminSearchPanel } from "@/components/common";
+import { AdminSearchForm } from "@/components/common";
+import type { AdminFormField, AdminFormModel } from "@/components/common";
 import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
 
-const filters = reactive({
-  keyword: "",
-  scene: "",
-  type: "",
-});
+// 字段 schema：业务页与演示页共用同一套 AdminSearchForm 封装
+const fields: AdminFormField[] = [
+  { component: "input", key: "keyword", label: "组件名称" },
+  { component: "input", key: "scene", label: "使用位置" },
+  {
+    component: "select",
+    key: "type",
+    label: "组件类型",
+    options: [
+      { label: "表格", value: "table" },
+      { label: "表单", value: "form" },
+      { label: "树形筛选", value: "tree" },
+    ],
+  },
+];
 
-function handleReset() {
-  filters.keyword = "";
-  filters.scene = "";
-  filters.type = "";
+const lastQuery = shallowRef<AdminFormModel | null>(null);
+
+function handleSearch(values: AdminFormModel) {
+  lastQuery.value = values;
+}
+
+function handleReset(values: AdminFormModel) {
+  lastQuery.value = values;
 }
 </script>
 
 <template>
   <CommonExampleCard title="基础查询表单">
-    <AdminSearchPanel label-width="88px" panel-label="基础查询表单">
-      <ElFormItem label="组件名称">
-        <ElInput v-model="filters.keyword" clearable placeholder="请输入" />
-      </ElFormItem>
+    <div class="basic-search-form-example">
+      <AdminSearchForm
+        :fields="fields"
+        panel-label="基础查询表单"
+        @reset="handleReset"
+        @search="handleSearch"
+      />
 
-      <ElFormItem label="使用位置">
-        <ElInput v-model="filters.scene" clearable placeholder="请输入" />
-      </ElFormItem>
-
-      <ElFormItem label="组件类型">
-        <ElSelect v-model="filters.type" clearable placeholder="请选择">
-          <ElOption label="表格" value="table" />
-          <ElOption label="表单" value="form" />
-          <ElOption label="树形筛选" value="tree" />
-        </ElSelect>
-      </ElFormItem>
-
-      <ElFormItem class="basic-search-form-example__actions" label=" ">
-        <ElButton @click="handleReset">重 置</ElButton>
-        <ElButton type="primary">搜 索</ElButton>
-      </ElFormItem>
-    </AdminSearchPanel>
+      <p v-if="lastQuery" class="basic-search-form-example__output">
+        最近一次查询参数：{{ JSON.stringify(lastQuery) }}
+      </p>
+    </div>
   </CommonExampleCard>
 </template>
 
 <style scoped>
-.basic-search-form-example__actions :deep(.el-form-item__content) {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.basic-search-form-example {
+  display: grid;
+  gap: 12px;
+}
+
+.basic-search-form-example__output {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  line-height: 20px;
+  word-break: break-all;
 }
 </style>

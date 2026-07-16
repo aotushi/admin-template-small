@@ -5,6 +5,7 @@ import fileRoutes from './routes/files';
 import userRoutes from './routes/users';
 import departmentRoutes from './routes/departments';
 import roleRoutes from './routes/roles';
+import menuRoutes from './routes/menus';
 import productRoutes from './routes/products';
 import dataReportRoutes from './routes/data-reports';
 import userApiRoutes from './routes/user-api';
@@ -153,6 +154,7 @@ app.route('/api/data-reports', dataReportRoutes);
 app.route('/api/users', userRoutes);
 app.route('/api/departments', departmentRoutes);
 app.route('/api/roles', roleRoutes);
+app.route('/api/menus', menuRoutes);
 
 // 用户API路由（使用API Key认证）
 app.route('/api/v1/user', userApiRoutes);

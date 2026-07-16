@@ -4,12 +4,21 @@ import type { CurrentUser } from "@/api/types";
 import { createMenuItems } from "@/router/menu";
 import { appRoutes } from "@/router/routes";
 
-// permissions 对齐迁移 019/020 的角色种子：super 全量、sub 管理员含用户查看
+// permissions 对齐迁移 021 的角色种子：super 全量 16 码、sub 管理员仅用户管理三码
 const superUser: CurrentUser = {
   admin_level: "super",
   id: 1,
   permissions: [
+    "system:dept:create",
+    "system:dept:delete",
+    "system:dept:update",
     "system:dept:view",
+    "system:menu:create",
+    "system:menu:delete",
+    "system:menu:update",
+    "system:menu:view",
+    "system:role:create",
+    "system:role:delete",
     "system:role:update",
     "system:role:view",
     "system:user:create",
@@ -24,7 +33,7 @@ const superUser: CurrentUser = {
 const adminUser: CurrentUser = {
   admin_level: "sub",
   id: 2,
-  permissions: ["system:dept:view", "system:user:create", "system:user:update", "system:user:view"],
+  permissions: ["system:user:create", "system:user:update", "system:user:view"],
   role: "admin",
   username: "admin",
 };
@@ -36,21 +45,11 @@ const normalUser: CurrentUser = {
 };
 
 describe("route driven menu", () => {
-  it("keeps super user menu aligned with the v1 route plan", () => {
+  it("keeps super user menu aligned with the template route plan", () => {
     const menu = createMenuItems(appRoutes, superUser);
 
-    expect(menu.map((item) => item.title)).toEqual([
-      "概览",
-      "数据统计",
-      "数据报告",
-      "Excel管理",
-      "API 管理",
-      "公共组件",
-      "系统管理",
-    ]);
-    expect(menu.find((item) => item.title === "数据统计")?.children?.[0]?.path).toBe(
-      "/statistics/daily",
-    );
+    expect(menu.map((item) => item.title)).toEqual(["概览", "公共组件", "系统管理"]);
+
     const componentMenu = menu.find((item) => item.title === "公共组件");
     const tableMenu = componentMenu?.children?.find((item) => item.title === "表格");
 
@@ -68,7 +67,7 @@ describe("route driven menu", () => {
     ]);
     expect(
       menu.find((item) => item.title === "系统管理")?.children?.map((item) => item.title),
-    ).toEqual(["用户管理", "用户数据", "角色管理", "权限管理", "菜单管理"]);
+    ).toEqual(["用户管理", "角色管理", "菜单管理", "部门管理"]);
   });
 
   it("hides super-only system entries from admin users", () => {
@@ -76,27 +75,12 @@ describe("route driven menu", () => {
       (item) => item.title === "系统管理",
     );
 
-    expect(systemMenu?.children?.map((item) => item.title)).toEqual(["用户管理", "用户数据"]);
+    expect(systemMenu?.children?.map((item) => item.title)).toEqual(["用户管理"]);
   });
 
   it("filters business menus for normal users", () => {
     const menu = createMenuItems(appRoutes, normalUser);
 
-    expect(menu.map((item) => item.title)).toEqual([
-      "概览",
-      "数据报告",
-      "Excel管理",
-      "API 管理",
-      "公共组件",
-    ]);
-    expect(
-      menu.find((item) => item.title === "数据报告")?.children?.map((item) => item.title),
-    ).toEqual(["数据报表", "结算单"]);
-    expect(
-      menu.find((item) => item.title === "Excel管理")?.children?.map((item) => item.title),
-    ).toEqual(["文件列表"]);
-    expect(
-      menu.find((item) => item.title === "API 管理")?.children?.map((item) => item.title),
-    ).toEqual(["我的 API Key", "API 文档"]);
+    expect(menu.map((item) => item.title)).toEqual(["概览", "公共组件"]);
   });
 });

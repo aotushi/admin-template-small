@@ -23,6 +23,7 @@
 | 权限承接 | 路由 `meta.permission` 权限码判定（`system:user:view`，后端下发），详见 `docs/router/route-guard-rbac.md` |
 | CRUD     | 新增、编辑、删除已接入真实 mutation（Pinia Colada + query 失效刷新），删除带二次确认                      |
 | 角色分配 | 编辑/新增弹窗内的角色下拉，仅 `super` 可用；后端同步写入 `user_roles` 绑定                                |
+| 部门分配 | 弹窗内部门树选择（仅末级部门可选，超级管理员不归属部门，与后端校验一致）；左侧部门树来自真实接口          |
 
 ## 文件结构
 
@@ -43,7 +44,7 @@ src/views/system/users/userRoleOptions.ts
   -> 角色下拉选项与后端 role/admin_level 字段互转
 
 src/views/system/users/components/UserDepartmentPanel.vue
-  -> 部门树面板，当前为页面级 mock 数据
+  -> 部门树面板，数据来自 GET /admin/api/departments/tree
 
 src/views/system/users/components/UserSearchPanel.vue
   -> 用户筛选面板
@@ -65,7 +66,7 @@ src/views/system/users/userFilters.spec.ts
 | API        | 只描述后端接口，不处理页面状态                      |
 | Query      | 只管理服务端数据状态，包括加载、错误、刷新、缓存    |
 | View       | 组合页面、筛选状态、分页状态和工具栏反馈            |
-| Department | 只负责展示部门树骨架，后续替换为真实部门接口        |
+| Department | 只负责展示部门树与选中筛选，数据来自真实部门接口    |
 | Search     | 只负责查询表单，不直接请求数据                      |
 | Table      | 只负责展示当前页数据、选择状态、工具栏和分页事件    |
 | Pure logic | 负责可测试的筛选、分页规则，不依赖 Vue 组件生命周期 |
@@ -81,7 +82,7 @@ src/views/system/users/userFilters.spec.ts
 | 面包屑   | 图标 + 文字，由路由 meta 生成              |
 | 页面标题 | 删除，不再和面包屑重复表达当前位置         |
 | 统计卡片 | 删除，用户管理 v1 先聚焦列表和查询         |
-| 左侧树   | 保留 Vben 列表页的部门树布局，当前为 mock  |
+| 左侧树   | 保留 Vben 列表页的部门树布局，真实数据     |
 | 查询表单 | 使用标签左置、两行多列、操作靠右的业务表单 |
 | 列表工具 | 新增、搜索显隐、刷新、全屏、密度入口先占位 |
 

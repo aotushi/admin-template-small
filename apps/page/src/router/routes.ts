@@ -70,188 +70,6 @@ export const appRoutes: RouteRecordRaw[] = [
   {
     component: () => import("@/views/RouteGroupView.vue"),
     meta: {
-      icon: "DataLine",
-      order: 20,
-      requiresAuth: true,
-      roles: ["super", "admin"],
-      title: "数据统计",
-    },
-    name: "Statistics",
-    path: "/statistics",
-    redirect: "/statistics/daily",
-    children: [
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 10,
-          permissions: ["statistics:daily:view"],
-          roles: ["super", "admin"],
-          title: "每日数据统计",
-        },
-        name: "StatisticsDaily",
-        path: "daily",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 20,
-          permissions: ["statistics:history:view"],
-          roles: ["super", "admin"],
-          title: "历史数据查询",
-        },
-        name: "StatisticsHistory",
-        path: "history",
-      },
-    ],
-  },
-  {
-    component: () => import("@/views/RouteGroupView.vue"),
-    meta: {
-      icon: "Document",
-      order: 30,
-      requiresAuth: true,
-      roles: ["super", "admin", "user"],
-      title: "数据报告",
-    },
-    name: "Reports",
-    path: "/reports",
-    redirect: "/reports/data",
-    children: [
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 10,
-          permissions: ["reports:edit"],
-          roles: ["super", "admin"],
-          title: "报告编辑",
-        },
-        name: "ReportEditor",
-        path: "editor",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 20,
-          permissions: ["reports:data:view"],
-          roles: ["super", "admin", "user"],
-          title: "数据报表",
-        },
-        name: "ReportData",
-        path: "data",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 30,
-          permissions: ["reports:settlement:view"],
-          roles: ["super", "admin", "user"],
-          title: "结算单",
-        },
-        name: "SettlementReport",
-        path: "settlement",
-      },
-    ],
-  },
-  {
-    component: () => import("@/views/RouteGroupView.vue"),
-    meta: {
-      icon: "Files",
-      order: 40,
-      requiresAuth: true,
-      roles: ["super", "admin", "user"],
-      title: "Excel管理",
-    },
-    name: "Excel",
-    path: "/excel",
-    redirect: "/excel/files",
-    children: [
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 10,
-          permissions: ["excel:upload"],
-          roles: ["super", "admin"],
-          title: "文件上传",
-        },
-        name: "ExcelUpload",
-        path: "upload",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 20,
-          permissions: ["excel:files:view"],
-          roles: ["super", "admin", "user"],
-          title: "文件列表",
-        },
-        name: "ExcelFiles",
-        path: "files",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          activeMenu: "/excel/files",
-          hideInMenu: true,
-          permissions: ["excel:data:view"],
-          roles: ["super", "admin", "user"],
-          title: "数据查看",
-        },
-        name: "ExcelDataView",
-        path: "data/:fileId?",
-      },
-    ],
-  },
-  {
-    component: () => import("@/views/RouteGroupView.vue"),
-    meta: {
-      icon: "Connection",
-      order: 50,
-      requiresAuth: true,
-      roles: ["super", "admin", "user"],
-      title: "API 管理",
-    },
-    name: "ApiManagement",
-    path: "/api",
-    redirect: "/api/my-keys",
-    children: [
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 10,
-          permissions: ["api-keys:manage"],
-          roles: ["super", "admin"],
-          title: "API Key 管理",
-        },
-        name: "ApiKeyManagement",
-        path: "keys",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 20,
-          permissions: ["api-keys:own:view"],
-          roles: ["super", "admin", "user"],
-          title: "我的 API Key",
-        },
-        name: "MyApiKeys",
-        path: "my-keys",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 30,
-          permissions: ["api-docs:view"],
-          roles: ["super", "admin", "user"],
-          title: "API 文档",
-        },
-        name: "ApiDocs",
-        path: "docs",
-      },
-    ],
-  },
-  {
-    component: () => import("@/views/RouteGroupView.vue"),
-    meta: {
       icon: "Grid",
       order: 55,
       requiresAuth: true,
@@ -337,29 +155,6 @@ export const appRoutes: RouteRecordRaw[] = [
         path: "users",
       },
       {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 20,
-          permissions: ["system:user-data:view"],
-          roles: ["super", "admin"],
-          title: "用户数据",
-        },
-        name: "SystemUserData",
-        path: "user-data",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          activeMenu: "/system/user-data",
-          hideInMenu: true,
-          permissions: ["system:user-data:view"],
-          roles: ["super", "admin"],
-          title: "用户数据详情",
-        },
-        name: "SystemUserDataDetail",
-        path: "user-data/:userId",
-      },
-      {
         component: () => import("@/views/system/roles/RoleManagementView.vue"),
         meta: {
           order: 30,
@@ -370,26 +165,24 @@ export const appRoutes: RouteRecordRaw[] = [
         path: "roles",
       },
       {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
-        meta: {
-          order: 40,
-          permissions: ["system:permissions:manage"],
-          roles: ["super"],
-          title: "权限管理",
-        },
-        name: "SystemPermissions",
-        path: "permissions",
-      },
-      {
-        component: () => import("@/views/FeaturePlaceholderView.vue"),
+        component: () => import("@/views/system/menus/MenuManagementView.vue"),
         meta: {
           order: 50,
-          permissions: ["system:menus:manage"],
-          roles: ["super"],
+          permission: PERMISSION_CODES.systemMenuView,
           title: "菜单管理",
         },
         name: "SystemMenus",
         path: "menus",
+      },
+      {
+        component: () => import("@/views/system/depts/DeptManagementView.vue"),
+        meta: {
+          order: 60,
+          permission: PERMISSION_CODES.systemDeptView,
+          title: "部门管理",
+        },
+        name: "SystemDepts",
+        path: "depts",
       },
     ],
   },

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
+import { DATA_SCOPES, PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
 import type { Env } from '../index';
 import { authMiddleware } from '../middlewares/auth';
-import { requirePermission } from '../services/permissions';
+import { getUserAccess, requirePermission } from '../services/permissions';
 import { DatabaseWrapper } from '../models/database';
 import { logger } from '../utils/logger';
 
@@ -21,7 +21,9 @@ interface DepartmentNode {
 const departments = new Hono<{ Bindings: Env }>();
 
 // 部门树：部门管理页与用户管理页（部门筛选树）共用，
-// 因此对 dept:view / user:view 任一放行
+// 因此对 dept:view / user:view 任一放行。
+// ?scope=data 时按当前用户数据范围过滤：dept 档只返回本部门及子部门
+// （用户表单的部门选择器用它，保证 dept 档管理员创建的用户始终落在自己可见范围内）
 departments.get(
   '/tree',
   authMiddleware,
@@ -29,7 +31,7 @@ departments.get(
   async c => {
     try {
       const db = new DatabaseWrapper(c.env.DB);
-      const rows = await db.all(`
+      let rows = (await db.all(`
         SELECT
           d.id,
           d.parent_id,
@@ -43,11 +45,18 @@ departments.get(
         LEFT JOIN users u ON u.department_id = d.id
         GROUP BY d.id, d.parent_id, d.code, d.name, d.sort_order, d.status, d.remark
         ORDER BY d.sort_order ASC, d.id ASC
-      `);
+      `)) as Omit<DepartmentNode, 'children'>[];
+
+      if (c.req.query('scope') === 'data') {
+        const access = await getUserAccess(c);
+        if (access.dataScope === DATA_SCOPES.dept && access.departmentId !== null) {
+          rows = filterSubtreeRows(rows, access.departmentId);
+        }
+      }
 
       return c.json({
         success: true,
-        data: buildDepartmentTree(rows as Omit<DepartmentNode, 'children'>[])
+        data: buildDepartmentTree(rows)
       });
     } catch (error) {
       logger.error('Departments tree error', error);
@@ -215,6 +224,25 @@ async function validateDepartmentPayload(
   return null;
 }
 
+// 取 rootId 及其所有后代（内存 BFS，行数据已全量在手无需再查库）
+function filterSubtreeRows(
+  rows: Omit<DepartmentNode, 'children'>[],
+  rootId: number
+): Omit<DepartmentNode, 'children'>[] {
+  const keep = new Set<number>([rootId]);
+  let added = true;
+  while (added) {
+    added = false;
+    for (const row of rows) {
+      if (row.parent_id !== null && keep.has(row.parent_id) && !keep.has(row.id)) {
+        keep.add(row.id);
+        added = true;
+      }
+    }
+  }
+  return rows.filter(row => keep.has(row.id));
+}
+
 function buildDepartmentTree(
   rows: Omit<DepartmentNode, 'children'>[]
 ): DepartmentNode[] {
@@ -231,14 +259,12 @@ function buildDepartmentTree(
   }
 
   for (const node of nodes.values()) {
-    if (node.parent_id === null) {
-      roots.push(node);
-      continue;
-    }
-
-    const parent = nodes.get(node.parent_id);
+    // parent 不在结果集内也视为根（scope=data 过滤后的子树根 parent_id 非空）
+    const parent = node.parent_id === null ? undefined : nodes.get(node.parent_id);
     if (parent) {
       parent.children.push(node);
+    } else {
+      roots.push(node);
     }
   }
 

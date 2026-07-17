@@ -45,6 +45,11 @@ const title = computed(() =>
 );
 
 const rules = computed<FormRules>(() => ({
+  // 创建时部门必填（super 除外）：无部门用户对 dept 数据范围的查看者不可见
+  departmentId:
+    !isEdit.value && form.roleOption !== "super"
+      ? [{ message: "请选择部门", required: true, trigger: "change", type: "number" }]
+      : [],
   password: isEdit.value
     ? [{ max: 18, message: "密码长度应为8-18位", min: 8, trigger: "blur" }]
     : [
@@ -85,6 +90,7 @@ watch(
   (roleOption) => {
     if (roleOption === "super") {
       form.departmentId = null;
+      formRef?.clearValidate("departmentId");
     }
   },
 );
@@ -151,7 +157,7 @@ async function handleSubmit() {
           default-expand-all
           :disabled="form.roleOption === 'super'"
           node-key="id"
-          placeholder="选填，仅可选择末级部门"
+          :placeholder="isEdit ? '选填，仅可选择末级部门' : '仅可选择末级部门'"
           :props="{ children: 'children', disabled: isDepartmentDisabled, label: 'name' }"
           style="width: 100%"
         />

@@ -8,6 +8,7 @@ import type { AdminUserListItem, CreateUserPayload, UpdateUserPayload } from "@/
 import { getApiErrorMessage } from "@/api/request";
 import { AdminDataTable } from "@/components/common";
 import {
+  useAssignableDepartmentsTreeQuery,
   useCreateUserMutation,
   useDeleteUserMutation,
   useDepartmentsTreeQuery,
@@ -34,6 +35,8 @@ import { userTableColumns } from "./userTableColumns";
 const authStore = useAuthStore();
 const usersQuery = useUsersListQuery();
 const departmentsQuery = useDepartmentsTreeQuery();
+// 表单对话框用按数据范围过滤的部门树（dept 档只含自己子树），侧栏筛选树仍用全树
+const assignableDepartmentsQuery = useAssignableDepartmentsTreeQuery();
 const createUserMutation = useCreateUserMutation();
 const updateUserMutation = useUpdateUserMutation();
 const deleteUserMutation = useDeleteUserMutation();
@@ -46,6 +49,7 @@ const searchPanelVisible = shallowRef(true);
 
 const users = computed(() => usersQuery.data.value ?? []);
 const departments = computed(() => departmentsQuery.data.value ?? []);
+const assignableDepartments = computed(() => assignableDepartmentsQuery.data.value ?? []);
 const selectedDepartmentIds = computed(() =>
   getSelectedDepartmentIds(departments.value, selectedDepartmentKey.value),
 );
@@ -101,6 +105,7 @@ function resetFilters() {
 function refreshUsers() {
   void usersQuery.refetch();
   void departmentsQuery.refetch();
+  void assignableDepartmentsQuery.refetch();
 }
 
 function handleQuery() {
@@ -296,7 +301,7 @@ async function handleDelete(user: AdminUserListItem) {
     <UserFormDialog
       v-model:visible="dialogVisible"
       :can-assign-role="canAssignRole"
-      :departments="departments"
+      :departments="assignableDepartments"
       :mode="dialogMode"
       :submitting="dialogSubmitting"
       :user="editingUser"

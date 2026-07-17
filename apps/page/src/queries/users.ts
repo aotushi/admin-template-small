@@ -3,6 +3,7 @@ import { defineQueryOptions, useMutation, useQuery, useQueryCache } from "@pinia
 import {
   createUserApi,
   deleteUserApi,
+  getAssignableDepartmentsTreeApi,
   getDepartmentsTreeApi,
   getUsersApi,
   updateUserApi,
@@ -11,6 +12,7 @@ import {
 } from "@/api/modules/users";
 
 export const USERS_QUERY_KEYS = {
+  assignableDepartments: () => [...USERS_QUERY_KEYS.root, "departments", "assignable"] as const,
   departments: () => [...USERS_QUERY_KEYS.root, "departments"] as const,
   list: () => [...USERS_QUERY_KEYS.root, "list"] as const,
   root: ["users"] as const,
@@ -32,6 +34,16 @@ export const departmentsTreeQueryOptions = defineQueryOptions(() => ({
 
 export function useDepartmentsTreeQuery() {
   return useQuery(departmentsTreeQueryOptions);
+}
+
+// 用户表单部门选择器专用：dept 数据范围的管理员只拿到自己子树
+export const assignableDepartmentsTreeQueryOptions = defineQueryOptions(() => ({
+  key: USERS_QUERY_KEYS.assignableDepartments(),
+  query: getAssignableDepartmentsTreeApi,
+}));
+
+export function useAssignableDepartmentsTreeQuery() {
+  return useQuery(assignableDepartmentsTreeQueryOptions);
 }
 
 // CRUD 成功后统一失效用户列表（部门 user_count 也随之刷新）

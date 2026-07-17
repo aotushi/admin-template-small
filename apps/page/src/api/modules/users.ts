@@ -52,6 +52,11 @@ export function getDepartmentsTreeApi() {
   return requestClient.get<AdminDepartmentTreeItem[]>("/api/departments/tree");
 }
 
+/** 按当前用户数据范围过滤的部门树（dept 档只含本部门及子部门），用户表单的部门选择器专用 */
+export function getAssignableDepartmentsTreeApi() {
+  return requestClient.get<AdminDepartmentTreeItem[]>("/api/departments/tree?scope=data");
+}
+
 export function createUserApi(payload: CreateUserPayload) {
   return requestClient.post<AdminUserListItem, CreateUserPayload>("/api/users/create", payload);
 }

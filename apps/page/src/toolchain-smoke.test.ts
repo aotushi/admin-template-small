@@ -24,6 +24,10 @@ describe("page scaffold", () => {
 
   it("keeps quick login accounts aligned with the target admin template", () => {
     expect(quickAccounts.map((account) => account.label)).toEqual(["Super", "Admin", "User"]);
-    expect(quickAccounts.map((account) => account.username)).toEqual(["vben", "admin", "jack"]);
+    expect(quickAccounts.map((account) => account.username)).toEqual([
+      "vben",
+      "信息化运维组_admin",
+      "jack",
+    ]);
   });
 });

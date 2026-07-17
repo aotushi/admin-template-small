@@ -21,7 +21,7 @@
 | 认证   | [登录接口为什么使用 mutation](auth/login-mutation.md)                         | 登录为何不用 query、mutation 在登录中的意义、登录成功跳转 |
 | 状态   | [Pinia 与 Pinia Colada 边界](state/pinia-vs-pinia-colada.md)                  | 本地状态与服务端状态的职责边界                            |
 | 系统   | [用户管理模块 v1](system/user-management-v1.md)                               | 用户列表、筛选、分页、RBAC 承接、CRUD 后续边界            |
-| 系统   | [角色/菜单/部门管理页](system/rbac-management-pages.md)                       | 菜单权限模型换代、树表格+schema 抽屉模式、后端业务规则    |
+| 系统   | [RBAC 系统管理页教程](system/rbac-management-pages.md)                        | 问题驱动的分步教程：从一颗消失的按钮走通四个管理页        |
 | 工程化 | [Vite+ 工具链](toolchain/vite-plus.md)                                        | 当前项目如何用 Vite+ 统一开发、检查、修复、测试等         |
 
 ## 当前学习主线

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import * as bcrypt from 'bcryptjs';
-import { PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
+import { DATA_SCOPES, PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
 import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import {
@@ -158,7 +158,12 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
     const db = new DatabaseWrapper(c.env.DB);
 
     let resolvedDepartmentId: number | null = null;
-    if (requestedAdminLevel !== 'super' && department_id !== undefined && department_id !== null) {
+    if (requestedAdminLevel !== 'super') {
+      // 部门必填：无部门用户对 dept 数据范围的查看者不可见，避免产生“孤儿用户”
+      if (department_id === undefined || department_id === null) {
+        return c.json({ error: '请选择部门' }, 400);
+      }
+
       const parsedDepartmentId = Number(department_id);
       if (!Number.isInteger(parsedDepartmentId)) {
         return c.json({ error: '部门ID无效' }, 400);
@@ -173,6 +178,24 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       );
       if (!department) {
         return c.json({ error: '用户只能分配到有效的子部门' }, 400);
+      }
+
+      // dept 数据范围的创建者只能把用户放进自己的部门子树，
+      // 保证"自己创建的 ⊆ 自己可见的"，不产生创建后看不到的用户
+      const access = await getUserAccess(c);
+      if (access.dataScope === DATA_SCOPES.dept && access.departmentId !== null) {
+        const inScope = await db.get(
+          `WITH RECURSIVE dept_tree(id) AS (
+             SELECT id FROM departments WHERE id = ?
+             UNION ALL
+             SELECT d.id FROM departments d JOIN dept_tree t ON d.parent_id = t.id
+           )
+           SELECT id FROM dept_tree WHERE id = ?`,
+          [access.departmentId, parsedDepartmentId]
+        );
+        if (!inScope) {
+          return c.json({ error: '只能选择本部门及子部门内的部门' }, 400);
+        }
       }
 
       resolvedDepartmentId = parsedDepartmentId;

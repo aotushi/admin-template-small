@@ -13,7 +13,7 @@ export const quickAccounts: QuickAccount[] = [
   {
     label: "Admin",
     password: "123456",
-    username: "admin",
+    username: "信息化运维组_admin",
   },
   {
     label: "User",

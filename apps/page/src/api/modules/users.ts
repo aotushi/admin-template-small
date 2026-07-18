@@ -40,6 +40,7 @@ export interface UpdateUserPayload {
   admin_level?: null | "sub" | "super";
   department_id?: null | number;
   email?: string;
+  is_active?: boolean;
   password?: string;
   role?: "admin" | "user";
 }

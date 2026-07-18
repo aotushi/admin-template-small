@@ -585,7 +585,7 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
   try {
     const userId = parseInt(c.req.param('userId'));
     const payload = await c.req.json();
-    const { admin_level, department_id, email, password, products, role } = payload;
+    const { admin_level, department_id, email, is_active, password, products, role } = payload;
     const currentUser = c.get('user');
 
     if (isNaN(userId)) {
@@ -607,6 +607,19 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
     // 权限检查：子管理员只能修改自己创建的用户
     if (!canManageUser(currentUser, userId, existingUser.created_by)) {
       return c.json({ error: '权限不足，只能修改自己创建的用户' }, 403);
+    }
+
+    // 状态变更防呆：不能禁用自己，受保护的系统账户不能禁用
+    if (is_active !== undefined) {
+      if (typeof is_active !== 'boolean') {
+        return c.json({ error: '状态值无效' }, 400);
+      }
+      if (!is_active && Number(currentUser.id) === userId) {
+        return c.json({ error: '不能禁用自己' }, 400);
+      }
+      if (!is_active && Boolean(existingUser.is_system)) {
+        return c.json({ error: '受保护的系统账户不能禁用' }, 403);
+      }
     }
 
     const changesAccess = role !== undefined || admin_level !== undefined;
@@ -699,6 +712,11 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       params.push(nextRole);
       updateFields.push('admin_level = ?');
       params.push(nextAdminLevel);
+    }
+
+    if (is_active !== undefined) {
+      updateFields.push('is_active = ?');
+      params.push(is_active ? 1 : 0);
     }
 
     if (Object.prototype.hasOwnProperty.call(payload, 'department_id') || nextAdminLevel === 'super') {

@@ -6,6 +6,7 @@ import { PERMISSION_CODES } from "@admin-backend-3/admin-api-contract/permission
 
 import type { AdminUserListItem, CreateUserPayload, UpdateUserPayload } from "@/api/modules/users";
 import { getApiErrorMessage } from "@/api/request";
+import { hasPermission } from "@/auth/permissions";
 import { AdminDataTable } from "@/components/common";
 import {
   useAssignableDepartmentsTreeQuery,
@@ -125,6 +126,10 @@ const dialogMode = shallowRef<"create" | "edit">("create");
 const editingUser = shallowRef<AdminUserListItem | null>(null);
 // 角色分配是总管理员专属规则（后端同样校验），与权限码判定互补
 const canAssignRole = computed(() => authStore.accessRole === "super");
+// 有更新权限时状态列显示开关，否则只读 Tag
+const canUpdateUser = computed(() =>
+  hasPermission(authStore.currentUser, PERMISSION_CODES.systemUserUpdate),
+);
 const dialogSubmitting = computed(
   () =>
     createUserMutation.asyncStatus.value === "loading" ||
@@ -173,6 +178,33 @@ async function handleDialogSubmit(value: UserFormValue) {
       ElMessage.success("用户更新成功");
     }
     dialogVisible.value = false;
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error));
+  }
+}
+
+async function handleToggleActive(user: AdminUserListItem) {
+  const disabling = Number(user.is_active ?? 1) === 1;
+  const confirmed = await ElMessageBox.confirm(
+    `确定${disabling ? "禁用" : "启用"}用户「${user.username}」吗？${disabling ? "禁用后该用户将立即无法访问系统。" : ""}`,
+    disabling ? "禁用用户" : "启用用户",
+    {
+      cancelButtonText: "取消",
+      confirmButtonText: disabling ? "禁用" : "启用",
+      type: "warning",
+    },
+  ).catch(() => false);
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await updateUserMutation.mutateAsync({
+      payload: { is_active: !disabling },
+      userId: user.id,
+    });
+    ElMessage.success(disabling ? "用户已禁用" : "用户已启用");
   } catch (error) {
     ElMessage.error(getApiErrorMessage(error));
   }
@@ -276,7 +308,15 @@ async function handleDelete(user: AdminUserListItem) {
         </template>
 
         <template #cell-status="{ row }: { row: AdminUserListItem }">
-          <ElTag :type="row.is_active === 0 ? 'info' : 'success'" effect="light">
+          <ElSwitch
+            v-if="canUpdateUser"
+            active-text="启用"
+            inactive-text="禁用"
+            inline-prompt
+            :model-value="Number(row.is_active ?? 1) === 1"
+            @change="handleToggleActive(row)"
+          />
+          <ElTag v-else :type="row.is_active === 0 ? 'info' : 'success'" effect="light">
             {{ getUserStatusLabel(row) }}
           </ElTag>
         </template>

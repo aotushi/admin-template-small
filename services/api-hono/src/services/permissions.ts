@@ -1,11 +1,9 @@
 import {
   DATA_SCOPE_RANK,
   DATA_SCOPES,
-  ROLE_CODES,
   isDataScope,
   type DataScope,
-  type PermissionCode,
-  type RoleCode
+  type PermissionCode
 } from '@admin-backend-3/admin-api-contract/permissions';
 import { AUTH_ERROR_CODES } from '@admin-backend-3/admin-api-contract/auth';
 import { authError } from './auth-responses';
@@ -23,12 +21,15 @@ export interface UserAccess {
   dataScope: DataScope;
   /** 去重后的权限码集合 */
   permissionCodes: Set<string>;
+  /** 用户绑定的启用角色码集合（user_roles 是角色归属的唯一来源） */
+  roleCodes: Set<string>;
 }
 
 interface AccessRow {
   code: null | string;
   data_scope: null | string;
   department_id: null | number;
+  role_code: null | string;
 }
 
 const ACCESS_CONTEXT_KEY = 'userAccess';
@@ -44,7 +45,7 @@ export async function resolveUserAccess(
 ): Promise<UserAccess> {
   const { results } = await db
     .prepare(
-      `SELECT u.department_id, r.data_scope, m.auth_code AS code
+      `SELECT u.department_id, r.code AS role_code, r.data_scope, m.auth_code AS code
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
        LEFT JOIN roles r ON r.id = ur.role_id AND r.status = 1
@@ -56,11 +57,15 @@ export async function resolveUserAccess(
     .all<AccessRow>();
 
   const permissionCodes = new Set<string>();
+  const roleCodes = new Set<string>();
   let dataScope: DataScope = DATA_SCOPES.self;
   let departmentId: null | number = null;
 
   for (const row of results ?? []) {
     departmentId = row.department_id ?? departmentId;
+    if (row.role_code) {
+      roleCodes.add(row.role_code);
+    }
     if (row.code) {
       permissionCodes.add(row.code);
     }
@@ -72,7 +77,12 @@ export async function resolveUserAccess(
     }
   }
 
-  return { dataScope, departmentId, permissionCodes };
+  return { dataScope, departmentId, permissionCodes, roleCodes };
+}
+
+/** authMiddleware 解析完 access 后预填缓存，后续 requirePermission 等消费方不再查库 */
+export function setUserAccessContext(c: any, access: UserAccess): void {
+  c.set(ACCESS_CONTEXT_KEY, access);
 }
 
 /**
@@ -107,29 +117,16 @@ export function requirePermission(code: PermissionCode | readonly PermissionCode
   };
 }
 
-/** 把 users.role/admin_level 归一为角色码（与迁移 019 回填规则一致） */
-export function toRoleCode(role: null | string, adminLevel: null | string): RoleCode {
-  if (role === 'admin' && adminLevel === 'super') {
-    return ROLE_CODES.super;
-  }
-  if (role === 'admin') {
-    return ROLE_CODES.admin;
-  }
-  return ROLE_CODES.user;
-}
-
 /**
- * 运行时同步 user_roles：用户创建或 role/admin_level 变更后必须调用，
- * 否则该用户在 RBAC 下解析不到任何权限码。
- * 角色归属当前仍以 users.role/admin_level 为单一来源，user_roles 是其派生绑定。
+ * 重设用户的单一角色绑定：user_roles 是角色归属的唯一来源，
+ * 用户创建或改角色后必须调用，否则该用户解析不到任何权限码。
+ * 调用方需先校验 roleCode 在 roles 表中存在，否则用户会落成无角色。
  */
-export async function syncUserRoleBinding(
+export async function assignUserRole(
   db: { run(query: string, params?: any[]): Promise<any> },
   userId: number,
-  role: null | string,
-  adminLevel: null | string
+  roleCode: string
 ): Promise<void> {
-  const roleCode = toRoleCode(role, adminLevel);
   await db.run('DELETE FROM user_roles WHERE user_id = ?', [userId]);
   await db.run(
     'INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE code = ?',

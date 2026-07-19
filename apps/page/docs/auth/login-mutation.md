@@ -1,18 +1,22 @@
 # 登录接口为什么使用 mutation
 
+> 本文聚焦“为什么登录属于 mutation”。如需沿源码追踪登录响应如何经过协调器、内存 Session、Pinia 和路由，请阅读[登录请求全链路教学案例](login-request-flow.md)。
+
 ## 当前项目怎么用
 
 当前登录接口已经从页面直接调用 Axios，改成通过 Pinia Colada mutation 调用。
 
 对应文件：
 
-| 文件                                                               | 作用                                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------ |
-| [`src/api/modules/auth.ts`](../../src/api/modules/auth.ts)         | 提供 `loginApi()`，只负责调用登录接口                  |
-| [`src/queries/auth.ts`](../../src/queries/auth.ts)                 | 提供 `useLoginMutation()`，管理登录动作状态            |
-| [`src/views/LoginView.vue`](../../src/views/LoginView.vue)         | 调用 `loginMutation.mutateAsync()`，成功后保存 session |
-| [`src/router/redirect.ts`](../../src/router/redirect.ts)           | 统一处理登录成功后的跳转目标                           |
-| [`src/views/DashboardView.vue`](../../src/views/DashboardView.vue) | 提供登录成功后的临时目标页                             |
+| 文件                                                                                         | 作用                                                   |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| [`src/api/modules/auth.ts`](../../src/api/modules/auth.ts)                                   | 提供 `loginApi()`，只负责调用登录接口                  |
+| [`src/queries/auth.ts`](../../src/queries/auth.ts)                                           | 提供 `useLoginMutation()`，管理登录动作状态            |
+| [`src/views/LoginView.vue`](../../src/views/LoginView.vue)                                   | 调用 `loginMutation.mutateAsync()`，成功后执行路由跳转 |
+| [`src/api/http/auth-session-coordinator.ts`](../../src/api/http/auth-session-coordinator.ts) | 执行登录请求并把结果交给 session store                 |
+| [`src/api/session.ts`](../../src/api/session.ts)                                             | 保存内存 session 并通知 Pinia                          |
+| [`src/router/redirect.ts`](../../src/router/redirect.ts)                                     | 统一处理登录成功后的跳转目标                           |
+| [`src/views/DashboardView.vue`](../../src/views/DashboardView.vue)                           | 提供登录成功后的临时目标页                             |
 
 当前流程：
 
@@ -20,10 +24,12 @@
 用户点击登录
   -> LoginView 校验表单
   -> loginMutation.mutateAsync(payload)
-  -> loginApi(payload)
+  -> authSessionCoordinator.login(() => loginApi(payload))
+  -> 协调器调用 loginApi(payload)
   -> Axios 发请求
-  -> mutation onSuccess 清理 auth 查询缓存
-  -> LoginView 将 accessToken / user 写入内存会话
+  -> 协调器将 accessToken / user 写入内存会话
+  -> session 模块通知 Pinia 更新登录状态
+  -> mutation onSuccess 清理旧账号的私有查询缓存
   -> LoginView 解析 redirect 参数
   -> 跳转到合法 redirect 或 /dashboard
 ```

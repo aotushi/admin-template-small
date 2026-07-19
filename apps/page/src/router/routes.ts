@@ -61,7 +61,6 @@ export const appRoutes: RouteRecordRaw[] = [
       icon: "HomeFilled",
       order: 10,
       requiresAuth: true,
-      roles: ["super", "admin", "user"],
       title: "概览",
     },
     name: "Dashboard",
@@ -135,7 +134,6 @@ export const appRoutes: RouteRecordRaw[] = [
       icon: "Setting",
       order: 60,
       requiresAuth: true,
-      roles: ["super", "admin"],
       title: "系统管理",
     },
     name: "SystemManagement",
@@ -147,7 +145,7 @@ export const appRoutes: RouteRecordRaw[] = [
         meta: {
           icon: "UserFilled",
           order: 10,
-          // meta.permission 样板：由后端下发的权限码判定访问，roles 不再参与本路由
+          // meta.permission 样板：由后端下发的权限码判定访问
           permission: PERMISSION_CODES.systemUserView,
           title: "用户管理",
         },

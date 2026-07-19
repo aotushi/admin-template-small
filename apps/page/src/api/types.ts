@@ -2,7 +2,6 @@
 export type { ApiFailure, ApiResponse, ApiSuccess } from "@/api/http/types";
 
 export interface CurrentUser {
-  admin_level?: null | string;
   avatar?: string;
   created_at?: string;
   created_by?: null | number;
@@ -13,7 +12,8 @@ export interface CurrentUser {
   is_system?: boolean;
   /** RBAC 权限码（后端 login/refresh/profile 下发），按钮显隐与路由 meta.permission 消费 */
   permissions?: string[];
-  role: string;
+  /** 角色码列表（user_roles 表实时解析下发），仅用于展示与 super 专属规则判定 */
+  roles?: string[];
   username: string;
 }
 

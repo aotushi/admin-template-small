@@ -4,9 +4,8 @@ import type { CurrentUser } from "@/api/types";
 import { createMenuItems } from "@/router/menu";
 import { appRoutes } from "@/router/routes";
 
-// permissions 对齐迁移 021 的角色种子：super 全量 16 码、sub 管理员仅用户管理三码
+// permissions 对齐迁移 021 的角色种子：super 全量 16 码、子管理员仅用户管理三码
 const superUser: CurrentUser = {
-  admin_level: "super",
   id: 1,
   permissions: [
     "system:dept:create",
@@ -26,21 +25,20 @@ const superUser: CurrentUser = {
     "system:user:update",
     "system:user:view",
   ],
-  role: "admin",
+  roles: ["super"],
   username: "vben",
 };
 
 const adminUser: CurrentUser = {
-  admin_level: "sub",
   id: 2,
   permissions: ["system:user:create", "system:user:update", "system:user:view"],
-  role: "admin",
+  roles: ["admin"],
   username: "admin",
 };
 
 const normalUser: CurrentUser = {
   id: 3,
-  role: "user",
+  roles: ["user"],
   username: "jack",
 };
 

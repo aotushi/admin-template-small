@@ -49,11 +49,16 @@ export function getUserStatusLabel(user: AdminUserListItem) {
 }
 
 export function getUserRoleLabel(user: AdminUserListItem) {
-  if (user.role === "admin" && user.admin_level === "super") {
+  // 自定义角色直接用 roles.name；内置三角色兜底中文名
+  if (user.role_name) {
+    return user.role_name;
+  }
+
+  if (user.role_code === "super") {
     return "超级管理员";
   }
 
-  if (user.role === "admin") {
+  if (user.role_code === "admin") {
     return "管理员";
   }
 
@@ -61,11 +66,11 @@ export function getUserRoleLabel(user: AdminUserListItem) {
 }
 
 export function getUserRoleTagType(user: AdminUserListItem): "danger" | "info" | "warning" {
-  if (user.role === "admin" && user.admin_level === "super") {
+  if (user.role_code === "super") {
     return "danger";
   }
 
-  return user.role === "admin" ? "warning" : "info";
+  return user.role_code === "admin" ? "warning" : "info";
 }
 
 function matchesUsername(user: AdminUserListItem, username: string) {
@@ -111,15 +116,12 @@ function matchesRole(user: AdminUserListItem, role: UserFilters["role"]) {
     return true;
   }
 
-  if (role === "super") {
-    return user.role === "admin" && user.admin_level === "super";
+  if (role === "super" || role === "admin") {
+    return user.role_code === role;
   }
 
-  if (role === "admin") {
-    return user.role === "admin" && user.admin_level !== "super";
-  }
-
-  return user.role === "user";
+  // user 档兜住自定义角色码与无绑定
+  return user.role_code !== "super" && user.role_code !== "admin";
 }
 
 function matchesDepartment(user: AdminUserListItem, allowedDepartmentIds?: ReadonlySet<string>) {

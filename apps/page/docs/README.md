@@ -16,7 +16,9 @@
 | 架构   | [后台面板 CSS 布局最佳实践](architecture/css-admin-layout-best-practices.md)  | Grid 主壳、Flex 局部、内容区滚动、折叠侧边栏和响应式策略  |
 | 架构   | [主题偏好与 CSS Token 设计](architecture/theme-preferences-and-css-tokens.md) | Vben 风格主题偏好、暗黑模式、主题色和侧边栏 token 组织    |
 | 路由   | [静态路由、守卫与 RBAC 菜单](router/route-guard-rbac.md)                      | 路由 meta、登录拦截、403、菜单派生、角色过滤              |
+| 路由   | [RBAC 全链路教学案例](router/rbac-end-to-end-flow.md)                         | 从登录权限到菜单、路由、按钮、接口和数据范围              |
 | 请求层 | [双 Token Axios 请求封装教程](request/axios-pinia-colada.md)                  | 问题驱动的分步教程：从一个 401 逐步构建出可复用套件       |
+| 认证   | [登录请求全链路教学案例](auth/login-request-flow.md)                          | 从表单到 HTTP、内存 Session、Pinia、路由与刷新恢复        |
 | 认证   | [双 Token 会话机制教程](auth/dual-token-session.md)                           | 会话模型、刷新判断审计、错误契约、并发与竞态、轮换宽限期  |
 | 认证   | [登录接口为什么使用 mutation](auth/login-mutation.md)                         | 登录为何不用 query、mutation 在登录中的意义、登录成功跳转 |
 | 状态   | [Pinia 与 Pinia Colada 边界](state/pinia-vs-pinia-colada.md)                  | 本地状态与服务端状态的职责边界                            |

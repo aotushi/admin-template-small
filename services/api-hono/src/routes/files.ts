@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import * as XLSX from 'xlsx';
 import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
-import { isSuperAdmin, isSubAdmin } from '../middlewares/permissions';
+import { isAnyAdmin, isSuperAdmin, isSubAdmin } from '../middlewares/permissions';
 import { authMiddleware } from '../middlewares/auth';
 import { getCurrentShanghaiTime } from '../utils/datetime';
 import { logger } from '../utils/logger';
@@ -15,7 +15,7 @@ files.post('/upload', authMiddleware, async (c) => {
   try {
     const user = c.get('user');
     
-    if (user.role !== 'admin') {
+    if (!isAnyAdmin(user)) {
       return c.json({ error: '权限不足，仅管理员可上传文件' }, 403);
     }
 
@@ -161,7 +161,13 @@ files.post('/upload', authMiddleware, async (c) => {
 
         try {
           // 检查用户是否存在，且必须是普通用户（不能给管理员分配文件）
-          const userExists = await db.get('SELECT id, username, role FROM users WHERE id = ? AND role = ?', [userId, 'user']);
+          const userExists = await db.get(
+            `SELECT u.id, u.username FROM users u
+             JOIN user_roles ur ON ur.user_id = u.id
+             JOIN roles r ON r.id = ur.role_id
+             WHERE u.id = ? AND r.code = ?`,
+            [userId, 'user']
+          );
           if (userExists) {
             // 分配权限
             await db.run(
@@ -292,7 +298,7 @@ files.get('/data/:fileId', authMiddleware, async (c) => {
     // 权限检查：管理员或有权限的用户才能查看
     let hasPermission = false;
     
-    if (user.role === 'admin') {
+    if (isAnyAdmin(user)) {
       hasPermission = true;
     } else {
       // 检查用户是否有此文件的查看权限
@@ -318,7 +324,7 @@ files.get('/data/:fileId', authMiddleware, async (c) => {
     }
 
     // 检查是否启用了定时发布且未到展示时间
-    if (fileInfo.scheduled_publish && fileInfo.display_time && user.role !== 'admin') {
+    if (fileInfo.scheduled_publish && fileInfo.display_time && !isAnyAdmin(user)) {
       const displayTime = new Date(fileInfo.display_time);
       const now = new Date();
 
@@ -386,7 +392,7 @@ files.delete('/:fileId', authMiddleware, async (c) => {
   try {
     const user = c.get('user');
     
-    if (user.role !== 'admin') {
+    if (!isAnyAdmin(user)) {
       return c.json({ error: '权限不足，仅管理员可删除文件' }, 403);
     }
 

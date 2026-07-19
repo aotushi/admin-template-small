@@ -71,7 +71,12 @@ export async function syncDailyStatsToReports(date: string, env: Env): Promise<S
 
   // 1. 获取超管用户 id（uploaded_by 字段需要有效的 user id）
   const superAdmin = await db
-    .prepare(`SELECT id FROM users WHERE role = 'admin' AND admin_level = 'super' LIMIT 1`)
+    .prepare(
+      `SELECT u.id FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+       WHERE r.code = 'super' LIMIT 1`
+    )
     .first<{ id: number }>();
 
   if (!superAdmin) {

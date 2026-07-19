@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { PERMISSION_CODES } from "@admin-backend-3/admin-api-contract/permissions";
 
-import { hasAnyRole } from "@/auth/rbac";
+import { hasPermission } from "@/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
 const user = computed(() => authStore.currentUser);
-const accessRole = computed(() => authStore.accessRole ?? "-");
+const roleLabel = computed(() => user.value?.roles?.join(", ") || "-");
 
 const metrics = [
   {
@@ -36,22 +37,22 @@ const quickActions = computed(() =>
     {
       description: "维护用户、角色和权限边界",
       path: "/system/users",
-      roles: ["super", "admin"] as const,
+      permission: PERMISSION_CODES.systemUserView,
       title: "用户管理",
     },
     {
       description: "配置角色、菜单权限与数据范围",
       path: "/system/roles",
-      roles: ["super"] as const,
+      permission: PERMISSION_CODES.systemRoleView,
       title: "角色管理",
     },
     {
       description: "查看通用列表、表单、树形组件范式",
       path: "/components/table/basic",
-      roles: ["super", "admin", "user"] as const,
+      permission: undefined,
       title: "公共组件",
     },
-  ].filter((action) => hasAnyRole(user.value, action.roles)),
+  ].filter((action) => hasPermission(user.value, action.permission)),
 );
 </script>
 
@@ -72,12 +73,8 @@ const quickActions = computed(() =>
           <dd>{{ user?.username || "-" }}</dd>
         </div>
         <div>
-          <dt>访问角色</dt>
-          <dd>{{ accessRole }}</dd>
-        </div>
-        <div>
-          <dt>后端角色</dt>
-          <dd>{{ user?.role || "-" }}</dd>
+          <dt>角色</dt>
+          <dd>{{ roleLabel }}</dd>
         </div>
       </dl>
     </section>
@@ -94,7 +91,7 @@ const quickActions = computed(() =>
       <div class="dashboard-panel">
         <header class="dashboard-panel__header">
           <h3 class="dashboard-panel__title">快捷入口</h3>
-          <span class="dashboard-panel__hint">按当前角色过滤</span>
+          <span class="dashboard-panel__hint">按当前权限过滤</span>
         </header>
 
         <div class="dashboard-actions">

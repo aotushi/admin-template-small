@@ -9,7 +9,8 @@ const row: AdminUserListItem = {
   department_name: "产品研发组",
   department_parent_name: "技术部",
   id: 9,
-  role: "admin",
+  role_code: "admin",
+  role_name: "子管理员",
   username: "tech.research",
 };
 

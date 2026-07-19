@@ -16,6 +16,10 @@ function createDatabase(
       return {
         bind(...parameters: unknown[]) {
           return {
+            // resolveUserAccess 的角色/权限解析查询：返回空集（测试只关心认证链路）
+            async all() {
+              return { results: [], success: true };
+            },
             async first() {
               return user;
             },
@@ -57,7 +61,7 @@ async function createToken() {
     await createAccessToken(
       {
         id: 1,
-        role: 'admin',
+        role_codes: ['admin'],
         username: 'vben'
       },
       JWT_SECRET
@@ -121,11 +125,9 @@ describe('authMiddleware', () => {
     const token = await createToken();
     const onRun = vi.fn();
     const response = await createApp({
-      admin_level: 'super',
       created_by: null,
       id: 1,
       is_active: 0,
-      role: 'admin',
       username: 'vben'
     }, onRun).request({ Authorization: `Bearer ${token}` });
 
@@ -143,11 +145,9 @@ describe('authMiddleware', () => {
   it('accepts an active user', async () => {
     const token = await createToken();
     const response = await createApp({
-      admin_level: 'super',
       created_by: null,
       id: 1,
       is_active: 1,
-      role: 'admin',
       username: 'vben'
     }).request({ Authorization: `Bearer ${token}` });
 

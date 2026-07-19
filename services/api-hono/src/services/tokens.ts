@@ -33,18 +33,18 @@ function toIsoExpiration(exp: number) {
   return new Date(exp * 1000).toISOString();
 }
 
-export function createUserPayload(user: {
-  admin_level?: null | string;
-  created_by?: null | number;
-  id: number;
-  role: string;
-  username: string;
-}): UserPayload {
+export function createUserPayload(
+  user: {
+    created_by?: null | number;
+    id: number;
+    username: string;
+  },
+  roleCodes: readonly string[]
+): UserPayload {
   return {
-    admin_level: user.admin_level,
     created_by: user.created_by,
     id: user.id,
-    role: user.role,
+    role_codes: [...roleCodes],
     username: user.username
   };
 }
@@ -100,7 +100,7 @@ function assertTokenPayload(
     throw new Error('Invalid token type');
   }
 
-  if (!tokenPayload.id || !tokenPayload.username || !tokenPayload.role) {
+  if (!tokenPayload.id || !tokenPayload.username) {
     throw new Error('Invalid token subject');
   }
 }

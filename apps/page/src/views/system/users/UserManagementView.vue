@@ -20,7 +20,7 @@ import { useAuthStore } from "@/stores/auth";
 import UserDepartmentPanel from "./components/UserDepartmentPanel.vue";
 import UserFormDialog, { type UserFormValue } from "./components/UserFormDialog.vue";
 import UserSearchPanel from "./components/UserSearchPanel.vue";
-import { toRoleFields, toRoleOption } from "./userRoleOptions";
+import { toRoleOption } from "./userRoleOptions";
 import type { UserFilters } from "./types";
 import { ALL_DEPARTMENTS_KEY, getSelectedDepartmentIds } from "./departmentTree";
 import {
@@ -125,7 +125,7 @@ const dialogVisible = shallowRef(false);
 const dialogMode = shallowRef<"create" | "edit">("create");
 const editingUser = shallowRef<AdminUserListItem | null>(null);
 // 角色分配是总管理员专属规则（后端同样校验），与权限码判定互补
-const canAssignRole = computed(() => authStore.accessRole === "super");
+const canAssignRole = computed(() => authStore.isSuper);
 // 有更新权限时状态列显示开关，否则只读 Tag
 const canUpdateUser = computed(() =>
   hasPermission(authStore.currentUser, PERMISSION_CODES.systemUserUpdate),
@@ -154,8 +154,8 @@ async function handleDialogSubmit(value: UserFormValue) {
       const payload: CreateUserPayload = {
         department_id: value.departmentId,
         password: value.password,
+        role: value.roleOption,
         username: value.username,
-        ...toRoleFields(value.roleOption),
       };
       if (value.email) {
         payload.email = value.email;
@@ -172,7 +172,7 @@ async function handleDialogSubmit(value: UserFormValue) {
       }
       // 只有总管理员且角色确有变化时才提交角色字段（后端拒绝非 super 的角色变更）
       if (canAssignRole.value && value.roleOption !== toRoleOption(editingUser.value)) {
-        Object.assign(payload, toRoleFields(value.roleOption));
+        payload.role = value.roleOption;
       }
       await updateUserMutation.mutateAsync({ payload, userId: editingUser.value.id });
       ElMessage.success("用户更新成功");

@@ -7,11 +7,9 @@ import { createAccessToken } from '../services/tokens';
 const JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
 
 const ACTIVE_USER = {
-  admin_level: 'super',
   created_by: null,
   id: 1,
   is_active: 1,
-  role: 'admin',
   username: 'vben'
 };
 
@@ -46,7 +44,8 @@ function createDatabase(options: FakeDbOptions) {
                   results: accessCodes.map(code => ({
                     code,
                     data_scope: 'all',
-                    department_id: null
+                    department_id: null,
+                    role_code: 'super'
                   })),
                   success: true
                 };
@@ -97,7 +96,7 @@ async function request(
   app.route('/', rolesRoutes);
 
   const { accessToken } = await createAccessToken(
-    { id: 1, role: 'admin', username: 'vben' },
+    { id: 1, role_codes: ['super'], username: 'vben' },
     JWT_SECRET
   );
 

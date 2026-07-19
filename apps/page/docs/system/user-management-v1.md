@@ -41,7 +41,7 @@ src/views/system/users/components/UserFormDialog.vue
   -> 新增/编辑用户弹窗表单（含角色下拉）
 
 src/views/system/users/userRoleOptions.ts
-  -> 角色下拉选项与后端 role/admin_level 字段互转
+  -> 角色下拉选项与后端 role_code（user_roles 表解析）互转
 
 src/views/system/users/components/UserDepartmentPanel.vue
   -> 部门树面板，数据来自 GET /admin/api/departments/tree

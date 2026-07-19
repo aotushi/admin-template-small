@@ -38,14 +38,19 @@ Success response:
     "user": {
       "id": 1,
       "username": "vben",
-      "role": "admin",
       "email": "vben@example.com",
-      "admin_level": "super",
-      "created_by": null
+      "department_id": null,
+      "is_active": true,
+      "is_system": true,
+      "created_by": null,
+      "roles": ["super"],
+      "permissions": ["system:menu:view", "system:role:assign", "system:role:view", "system:user:create"]
     }
   }
 }
 ```
+
+`roles` and `permissions` are resolved live from the RBAC tables (`user_roles` → `roles` → `role_permissions`) on every response; the `users` table itself stores no role column. They are never embedded in the JWT, so a role or permission change takes effect on the next token refresh.
 
 The response also sets the host-only `admin_backend_refresh` cookie with `HttpOnly`, `SameSite=Strict`, and production `Secure` attributes. Its path is limited to `/admin/api/auth`.
 
@@ -90,11 +95,13 @@ The backend revokes the complete refresh-session family and expires the cookie. 
 
 ## Demo Accounts
 
-| Display | username | password | role  | admin_level |
-| ------- | -------- | -------- | ----- | ----------- |
-| Super   | `vben`   | `123456` | admin | super       |
-| Admin   | `admin`  | `123456` | admin | sub         |
-| User    | `jack`   | `123456` | user  | null        |
+Roles come from the `user_roles` binding table; the account row itself has no role column.
+
+| Display | username           | password | role code |
+| ------- | ------------------ | -------- | --------- |
+| Super   | `vben`             | `123456` | super     |
+| Admin   | `信息化运维组_admin` | `123456` | admin     |
+| User    | `jack`             | `123456` | user      |
 
 ## Frontend State Boundary
 

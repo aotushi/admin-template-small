@@ -5,7 +5,7 @@ import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import { getJWTSecret } from '../middlewares/auth';
 import { logger } from '../utils/logger';
-import { isSuperAdmin } from '../middlewares/permissions';
+import { isAnyAdmin, isSuperAdmin } from '../middlewares/permissions';
 import {
   createAccessToken,
   createUserPayload
@@ -24,7 +24,11 @@ import {
 } from '../services/auth-cookies';
 import { isTrustedBrowserOrigin } from '../config/origins';
 import { authError, setAuthResponseNoStore } from '../services/auth-responses';
-import { resolveUserAccess, syncUserRoleBinding } from '../services/permissions';
+import {
+  assignUserRole,
+  resolveUserAccess,
+  type UserAccess
+} from '../services/permissions';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -33,26 +37,20 @@ auth.use('*', async (c, next) => {
   await next();
 });
 
-function serializeUser(user: any, permissions: string[] = []) {
+function serializeUser(user: any, access: UserAccess) {
   return {
     id: user.id,
     username: user.username,
-    role: user.role,
     email: user.email || '',
-    admin_level: user.admin_level,
     department_id: user.department_id,
     is_active: Boolean(user.is_active),
     is_system: Boolean(user.is_system),
     created_by: user.created_by,
-    // RBAC 权限码：前端按钮显隐 / 路由 meta.permission 消费
-    permissions
+    // RBAC 实时解析结果（每次下发都从 D1 查，不进 JWT，改角色/权限后刷新令牌即生效）：
+    // roles 是角色码（前端展示用），permissions 是权限码（按钮显隐 / 路由 meta.permission 消费）
+    roles: [...access.roleCodes].sort(),
+    permissions: [...access.permissionCodes].sort()
   };
-}
-
-// 每次下发都从 D1 实时解析（不进 JWT），改权限后刷新令牌即可生效
-async function loadPermissionCodes(db: D1Database, userId: number) {
-  const access = await resolveUserAccess(db, userId);
-  return [...access.permissionCodes].sort();
 }
 
 function sessionExpiresAt(expiresAt: number) {
@@ -86,7 +84,7 @@ auth.post('/login', async c => {
     // 查找用户
     const dbStart = Date.now();
     const user = await db.get(
-      'SELECT id, username, password, role, email, admin_level, department_id, is_system, is_active, created_by FROM users WHERE username = ?',
+      'SELECT id, username, password, email, department_id, is_system, is_active, created_by FROM users WHERE username = ?',
       [username]
     );
     timings.dbQuery = Date.now() - dbStart;
@@ -123,15 +121,17 @@ auth.post('/login', async c => {
       );
     }
 
+    const rbacStart = Date.now();
+    const userAccess = await resolveUserAccess(c.env.DB, user.id);
+    timings.rbacResolve = Date.now() - rbacStart;
+
     const jwtStart = Date.now();
     const jwtSecret = getJWTSecret(c.env);
-    const userPayload = createUserPayload(user);
+    const userPayload = createUserPayload(user, [...userAccess.roleCodes]);
     const access = await createAccessToken(userPayload, jwtSecret);
     const refreshSession = await createRefreshSession(c.env.DB, user.id);
     setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
     timings.jwtSign = Date.now() - jwtStart;
-
-    const permissions = await loadPermissionCodes(c.env.DB, user.id);
 
     timings.total = Date.now() - startTime;
 
@@ -140,7 +140,7 @@ auth.post('/login', async c => {
       data: {
         ...access,
         sessionExpires: sessionExpiresAt(refreshSession.absoluteExpiresAt),
-        user: serializeUser(user, permissions),
+        user: serializeUser(user, userAccess),
         ...(c.env.ENVIRONMENT === 'development' && { _timings: timings })
       }
     });
@@ -180,7 +180,7 @@ auth.post('/refresh', async c => {
     rotatedFamilyId = refreshSession.familyId;
     const db = new DatabaseWrapper(c.env.DB);
     const user = await db.get(
-      'SELECT id, username, role, email, admin_level, department_id, is_system, is_active, created_by FROM users WHERE id = ?',
+      'SELECT id, username, email, department_id, is_system, is_active, created_by FROM users WHERE id = ?',
       [refreshSession.userId]
     );
 
@@ -195,16 +195,19 @@ auth.post('/refresh', async c => {
       );
     }
 
-    const access = await createAccessToken(createUserPayload(user), jwtSecret);
+    const userAccess = await resolveUserAccess(c.env.DB, user.id);
+    const access = await createAccessToken(
+      createUserPayload(user, [...userAccess.roleCodes]),
+      jwtSecret
+    );
     setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
-    const permissions = await loadPermissionCodes(c.env.DB, user.id);
 
     return c.json({
       success: true,
       data: {
         ...access,
         sessionExpires: sessionExpiresAt(refreshSession.absoluteExpiresAt),
-        user: serializeUser(user, permissions)
+        user: serializeUser(user, userAccess)
       }
     });
   } catch (error) {
@@ -289,7 +292,7 @@ auth.post('/register', async c => {
     const payload = c.get('user');
 
     // 检查是否为管理员
-    if (payload.role !== 'admin') {
+    if (!isAnyAdmin(payload)) {
       return c.json({ error: '权限不足' }, 403);
     }
 
@@ -323,16 +326,15 @@ auth.post('/register', async c => {
 
     // 插入新用户
     const result = await db.run(
-      'INSERT INTO users (username, password, role, email, admin_level, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, hashedPassword, role, email, role === 'admin' ? 'sub' : null, payload.id]
+      'INSERT INTO users (username, password, email, created_by) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, email, payload.id]
     );
 
-    // 同步 RBAC 角色绑定（缺失时新用户无任何权限码）
-    await syncUserRoleBinding(
+    // 写入 RBAC 角色绑定（user_roles 是角色归属唯一来源，缺失时新用户无任何权限码）
+    await assignUserRole(
       db,
       result.meta?.last_row_id || result.lastInsertRowid,
-      role,
-      role === 'admin' ? 'sub' : null
+      role
     );
 
     return c.json({
@@ -357,7 +359,7 @@ auth.get('/profile', async c => {
 
     const db = new DatabaseWrapper(c.env.DB);
     const user = await db.get(
-      'SELECT id, username, role, email, admin_level, department_id, is_system, is_active, created_by, created_at FROM users WHERE id = ?',
+      'SELECT id, username, email, department_id, is_system, is_active, created_by, created_at FROM users WHERE id = ?',
       [payload.id]
     );
 
@@ -365,11 +367,15 @@ auth.get('/profile', async c => {
       return c.json({ error: '用户不存在' }, 404);
     }
 
-    const permissions = await loadPermissionCodes(c.env.DB, payload.id);
+    const userAccess = await resolveUserAccess(c.env.DB, payload.id);
 
     return c.json({
       success: true,
-      data: { ...user, permissions }
+      data: {
+        ...user,
+        roles: [...userAccess.roleCodes].sort(),
+        permissions: [...userAccess.permissionCodes].sort()
+      }
     });
   } catch (error) {
     logger.error('Profile error', error);
@@ -382,13 +388,17 @@ auth.get('/users', async c => {
   try {
     const payload = c.get('user');
 
-    if (payload.role !== 'admin') {
+    if (!isAnyAdmin(payload)) {
       return c.json({ error: '权限不足' }, 403);
     }
 
     const db = new DatabaseWrapper(c.env.DB);
     const users = await db.all(
-      'SELECT id, username, role, email, is_active, created_at FROM users ORDER BY created_at DESC'
+      `SELECT u.id, u.username, r.code AS role_code, u.email, u.is_active, u.created_at
+       FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN roles r ON r.id = ur.role_id
+       ORDER BY u.created_at DESC`
     );
 
     return c.json({

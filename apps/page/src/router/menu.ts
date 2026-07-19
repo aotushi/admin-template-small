@@ -16,11 +16,16 @@ export function createMenuItems(
   user: CurrentUser | null,
   parentPath = "",
 ) {
-  return routes
-    .filter((route) => canAccessRouteMeta(route, user))
-    .filter((route) => route.meta?.title && !route.meta.hideInMenu)
-    .sort(sortByRouteOrder)
-    .map((route) => createMenuItem(route, user, parentPath));
+  return (
+    routes
+      .filter((route) => canAccessRouteMeta(route, user))
+      .filter((route) => route.meta?.title && !route.meta.hideInMenu)
+      .sort(sortByRouteOrder)
+      .map((route) => ({ item: createMenuItem(route, user, parentPath), route }))
+      // 目录路由（声明了 children）在子项全被权限过滤后整体隐藏，避免出现空目录
+      .filter(({ item, route }) => !route.children?.length || Boolean(item.children?.length))
+      .map(({ item }) => item)
+  );
 }
 
 function createMenuItem(

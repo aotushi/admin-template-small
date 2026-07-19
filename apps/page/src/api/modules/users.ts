@@ -1,7 +1,6 @@
 import { requestClient } from "@/api/request";
 
 export interface AdminUserListItem {
-  admin_level?: null | string;
   created_at?: null | string;
   created_by?: null | number | string;
   created_by_username?: null | string;
@@ -12,7 +11,10 @@ export interface AdminUserListItem {
   id: number | string;
   is_system?: boolean | number;
   is_active?: boolean | number;
-  role: string;
+  /** 角色码（roles.code，经 user_roles 关联），无绑定时为 null */
+  role_code?: null | string;
+  /** 角色显示名（roles.name） */
+  role_name?: null | string;
   username: string;
 }
 
@@ -26,23 +28,21 @@ export interface AdminDepartmentTreeItem {
   user_count: number;
 }
 
-/** 前端角色选项与后端 role/admin_level 的映射见 userRoleOptions.ts */
+/** role 为角色码（roles.code），后端按 roles 表校验；表单选项映射见 userRoleOptions.ts */
 export interface CreateUserPayload {
-  admin_level?: null | "sub" | "super";
   department_id?: null | number;
   email?: string;
   password: string;
-  role?: "admin" | "user";
+  role?: string;
   username: string;
 }
 
 export interface UpdateUserPayload {
-  admin_level?: null | "sub" | "super";
   department_id?: null | number;
   email?: string;
   is_active?: boolean;
   password?: string;
-  role?: "admin" | "user";
+  role?: string;
 }
 
 export function getUsersApi() {

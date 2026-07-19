@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
 import * as bcrypt from 'bcryptjs';
-import { DATA_SCOPES, PERMISSION_CODES } from '@admin-backend-3/admin-api-contract/permissions';
+import { DATA_SCOPES, PERMISSION_CODES, ROLE_CODES } from '@admin-backend-3/admin-api-contract/permissions';
 import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import {
+  isAnyAdmin,
   isSuperAdmin,
   isSubAdmin,
   canDeleteUser,
@@ -11,10 +12,10 @@ import {
 } from '../middlewares/permissions';
 import { authMiddleware, adminMiddleware } from '../middlewares/auth';
 import {
+  assignUserRole,
   buildUsersScopeCondition,
   getUserAccess,
-  requirePermission,
-  syncUserRoleBinding
+  requirePermission
 } from '../services/permissions';
 import { getCurrentShanghaiTime, toBeijingTime } from '../utils/datetime';
 import { logger } from '../utils/logger';
@@ -35,8 +36,8 @@ users.get('/list', authMiddleware, requirePermission(PERMISSION_CODES.systemUser
         u.id,
         u.username,
         u.email,
-        u.role,
-        u.admin_level,
+        r.code as role_code,
+        r.name as role_name,
         u.department_id,
         u.is_system,
         u.is_active,
@@ -46,6 +47,8 @@ users.get('/list', authMiddleware, requirePermission(PERMISSION_CODES.systemUser
         department.name as department_name,
         parent_department.name as department_parent_name
       FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
       LEFT JOIN users creator ON u.created_by = creator.id
       LEFT JOIN departments department ON u.department_id = department.id
       LEFT JOIN departments parent_department ON department.parent_id = parent_department.id
@@ -86,10 +89,12 @@ users.get('/search', authMiddleware, adminMiddleware, async c => {
 
     const searchResults = await db.all(
       `
-      SELECT id, username, email, role, created_at
-      FROM users 
-      WHERE username LIKE ? OR email LIKE ?
-      ORDER BY username
+      SELECT u.id, u.username, u.email, r.code AS role_code, u.created_at
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      WHERE u.username LIKE ? OR u.email LIKE ?
+      ORDER BY u.username
       LIMIT 10
     `,
       [`%${query}%`, `%${query}%`]
@@ -112,8 +117,7 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       username,
       email,
       password,
-      role = 'user',
-      admin_level,
+      role = ROLE_CODES.user,
       department_id,
       assigned_to_admin,
       products
@@ -135,30 +139,27 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       return c.json({ error: '密码至少6个字符' }, 400);
     }
 
-    if (!['admin', 'user'].includes(role)) {
+    const db = new DatabaseWrapper(c.env.DB);
+
+    // 角色码必须在 roles 表中存在且启用（user_roles 是角色归属唯一来源）
+    if (typeof role !== 'string' || !role.trim()) {
+      return c.json({ error: '用户角色无效' }, 400);
+    }
+    const roleRow = await db.get(
+      'SELECT id FROM roles WHERE code = ? AND status = 1',
+      [role]
+    );
+    if (!roleRow) {
       return c.json({ error: '用户角色无效' }, 400);
     }
 
-    if (admin_level !== undefined && !['super', 'sub', null].includes(admin_level)) {
-      return c.json({ error: '管理员级别无效' }, 400);
-    }
-
-    const requestedAdminLevel =
-      admin_level === 'super' || admin_level === 'sub'
-        ? admin_level
-        : role === 'admin'
-          ? 'sub'
-          : null;
-
-    // 只有总管理员可以授予管理员或总管理员权限。
-    if (requestedAdminLevel && !isSuperAdmin(currentUser)) {
+    // 只有总管理员可以授予普通用户以外的角色
+    if (role !== ROLE_CODES.user && !isSuperAdmin(currentUser)) {
       return c.json({ error: '只有总管理员可以授予管理员权限' }, 403);
     }
 
-    const db = new DatabaseWrapper(c.env.DB);
-
     let resolvedDepartmentId: number | null = null;
-    if (requestedAdminLevel !== 'super') {
+    if (role !== ROLE_CODES.super) {
       // 部门必填：无部门用户对 dept 数据范围的查看者不可见，避免产生“孤儿用户”
       if (department_id === undefined || department_id === null) {
         return c.json({ error: '请选择部门' }, 400);
@@ -213,8 +214,11 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
 
       // 验证 assigned_to_admin 是否是有效的子管理员
       const targetAdmin = await db.get(
-        'SELECT id FROM users WHERE id = ? AND role = ? AND admin_level = ?',
-        [assigned_to_admin, 'admin', 'sub']
+        `SELECT u.id FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+         JOIN roles r ON r.id = ur.role_id
+         WHERE u.id = ? AND r.code = ?`,
+        [assigned_to_admin, ROLE_CODES.admin]
       );
 
       if (!targetAdmin) {
@@ -252,19 +256,13 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
     // 获取当前本地时间
     const now = getCurrentShanghaiTime();
 
-    // 确定用户角色和层级
-    const userRole = requestedAdminLevel ? 'admin' : 'user';
-    const userAdminLevel = requestedAdminLevel;
-
     // 创建用户（使用确定的创建者ID）
     const result = await db.run(
-      'INSERT INTO users (username, password, email, role, admin_level, created_by, department_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO users (username, password, email, created_by, department_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [
         username,
         hashedPassword,
         email || null,
-        userRole,
-        userAdminLevel,
         createdBy,
         resolvedDepartmentId,
         now
@@ -273,13 +271,13 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
 
     const userId = result.meta?.last_row_id || result.lastInsertRowid;
 
-    // 同步 RBAC 角色绑定（缺失时新用户无任何权限码）
-    await syncUserRoleBinding(db, userId, userRole, userAdminLevel);
+    // 写入 RBAC 角色绑定（user_roles 是角色归属唯一来源，缺失时新用户无任何权限码）
+    await assignUserRole(db, userId, role);
 
     // 处理产品配置（仅普通用户）
     const createdProducts = [];
     if (
-      role === 'user' &&
+      role === ROLE_CODES.user &&
       products &&
       Array.isArray(products) &&
       products.length > 0
@@ -386,8 +384,7 @@ users.post('/create', authMiddleware, requirePermission(PERMISSION_CODES.systemU
         id: userId,
         username,
         email,
-        role: userRole,
-        admin_level: userAdminLevel,
+        role_code: role,
         department_id: resolvedDepartmentId,
         created_by: createdBy,
         created_at: now,
@@ -417,7 +414,7 @@ users.post('/create-or-get', authMiddleware, adminMiddleware, async c => {
 
     // 先查找是否已存在
     let user = await db.get(
-      'SELECT id, username, email, role, created_at FROM users WHERE username = ?',
+      'SELECT id, username, email, created_at FROM users WHERE username = ?',
       [username]
     );
 
@@ -438,20 +435,19 @@ users.post('/create-or-get', authMiddleware, adminMiddleware, async c => {
     const now = getCurrentShanghaiTime();
 
     const result = await db.run(
-      'INSERT INTO users (username, password, email, role, created_at) VALUES (?, ?, ?, ?, ?)',
-      [username, hashedPassword, email || null, 'user', now]
+      'INSERT INTO users (username, password, email, created_at) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, email || null, now]
     );
 
     const userId = result.meta?.last_row_id || result.lastInsertRowid;
 
-    // 同步 RBAC 角色绑定（缺失时新用户无任何权限码）
-    await syncUserRoleBinding(db, userId, 'user', null);
+    // 写入 RBAC 角色绑定（user_roles 是角色归属唯一来源，缺失时新用户无任何权限码）
+    await assignUserRole(db, userId, ROLE_CODES.user);
 
     user = {
       id: userId,
       username,
       email,
-      role: 'user',
       created_at: now
     };
 
@@ -494,7 +490,7 @@ users.get('/:userId/data', authMiddleware, async c => {
     // - 总管理员可以查看所有用户数据
     // - 子管理员只能查看自己创建的用户数据
     // - 普通用户只能查看自己的数据
-    if (currentUser.role === 'user' && currentUser.id !== userId) {
+    if (!isAnyAdmin(currentUser) && currentUser.id !== userId) {
       return c.json({ error: '权限不足，只能查看自己的数据' }, 403);
     }
 
@@ -533,7 +529,7 @@ users.get('/:userId/data', authMiddleware, async c => {
         )
       ORDER BY ed.created_at DESC, ed.file_id, ed.row_index
     `,
-      [userId, currentUser.role]
+      [userId, isAnyAdmin(currentUser) ? 'admin' : 'user']
     );
 
     // 解析数据并转换为前端需要的格式
@@ -585,7 +581,7 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
   try {
     const userId = parseInt(c.req.param('userId'));
     const payload = await c.req.json();
-    const { admin_level, department_id, email, is_active, password, products, role } = payload;
+    const { department_id, email, is_active, password, products, role } = payload;
     const currentUser = c.get('user');
 
     if (isNaN(userId)) {
@@ -594,9 +590,13 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
 
     const db = new DatabaseWrapper(c.env.DB);
 
-    // 检查用户是否存在，并获取用户信息
+    // 检查用户是否存在，并获取用户信息（含当前角色码，单角色绑定）
     const existingUser = await db.get(
-      'SELECT id, username, role, admin_level, department_id, created_by, is_system FROM users WHERE id = ?',
+      `SELECT u.id, u.username, r.code AS role_code, u.department_id, u.created_by, u.is_system
+       FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN roles r ON r.id = ur.role_id
+       WHERE u.id = ?`,
       [userId]
     );
 
@@ -622,7 +622,7 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       }
     }
 
-    const changesAccess = role !== undefined || admin_level !== undefined;
+    const changesAccess = role !== undefined;
     if (changesAccess && !isSuperAdmin(currentUser)) {
       return c.json({ error: '只有总管理员可以修改用户角色' }, 403);
     }
@@ -631,26 +631,30 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       return c.json({ error: '受保护的系统账户不能修改角色' }, 403);
     }
 
-    const nextRole = role ?? existingUser.role;
-    if (!['admin', 'user'].includes(nextRole)) {
-      return c.json({ error: '用户角色无效' }, 400);
-    }
-
-    let nextAdminLevel = admin_level ?? existingUser.admin_level;
-    if (nextRole === 'user') {
-      nextAdminLevel = null;
-    } else if (!['super', 'sub'].includes(nextAdminLevel)) {
-      nextAdminLevel = 'sub';
+    // 目标角色码：未传时沿用现绑定；无绑定的历史用户按普通用户处理
+    const nextRole = role ?? existingUser.role_code ?? ROLE_CODES.user;
+    if (changesAccess) {
+      if (typeof role !== 'string' || !role.trim()) {
+        return c.json({ error: '用户角色无效' }, 400);
+      }
+      const roleRow = await db.get(
+        'SELECT id FROM roles WHERE code = ? AND status = 1',
+        [role]
+      );
+      if (!roleRow) {
+        return c.json({ error: '用户角色无效' }, 400);
+      }
     }
 
     const demotesSuperAdmin =
-      existingUser.role === 'admin' &&
-      existingUser.admin_level === 'super' &&
-      (nextRole !== 'admin' || nextAdminLevel !== 'super');
+      existingUser.role_code === ROLE_CODES.super && nextRole !== ROLE_CODES.super;
 
     if (demotesSuperAdmin) {
       const superAdminCount = await db.get(
-        "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND admin_level = 'super'"
+        `SELECT COUNT(*) AS count FROM user_roles ur
+         JOIN roles r ON r.id = ur.role_id
+         WHERE r.code = ?`,
+        [ROLE_CODES.super]
       );
       if (Number(superAdminCount?.count) <= 1) {
         return c.json({ error: '系统必须至少保留一个总管理员' }, 400);
@@ -707,22 +711,16 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       params.push(hashedPassword);
     }
 
-    if (changesAccess) {
-      updateFields.push('role = ?');
-      params.push(nextRole);
-      updateFields.push('admin_level = ?');
-      params.push(nextAdminLevel);
-    }
-
     if (is_active !== undefined) {
       updateFields.push('is_active = ?');
       params.push(is_active ? 1 : 0);
     }
 
-    if (Object.prototype.hasOwnProperty.call(payload, 'department_id') || nextAdminLevel === 'super') {
+    // 超级管理员不归属部门：升为 super 时强制清空
+    if (Object.prototype.hasOwnProperty.call(payload, 'department_id') || nextRole === ROLE_CODES.super) {
       let resolvedDepartmentId: number | null = null;
 
-      if (nextAdminLevel !== 'super' && department_id !== null && department_id !== undefined) {
+      if (nextRole !== ROLE_CODES.super && department_id !== null && department_id !== undefined) {
         const parsedDepartmentId = Number(department_id);
         if (!Number.isInteger(parsedDepartmentId)) {
           return c.json({ error: '部门ID无效' }, 400);
@@ -753,9 +751,9 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
       await db.run(updateQuery, params);
     }
 
-    // 角色变更后重同步 RBAC 绑定（下次刷新令牌生效）
+    // 角色变更后重设 user_roles 绑定（下次请求即生效，authMiddleware 每请求实时解析）
     if (changesAccess) {
-      await syncUserRoleBinding(db, userId, nextRole, nextAdminLevel);
+      await assignUserRole(db, userId, nextRole);
     }
 
     // 处理产品配置更新（完全替换模式）
@@ -1098,14 +1096,16 @@ users.put('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.systemU
          u.id,
          u.username,
          u.email,
-         u.role,
-         u.admin_level,
+         r.code AS role_code,
+         r.name AS role_name,
          u.department_id,
          u.is_system,
          u.created_at,
          department.name AS department_name,
          parent_department.name AS department_parent_name
        FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN roles r ON r.id = ur.role_id
        LEFT JOIN departments department ON u.department_id = department.id
        LEFT JOIN departments parent_department ON department.parent_id = parent_department.id
        WHERE u.id = ?`,
@@ -1145,9 +1145,13 @@ users.delete('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.syst
 
     const db = new DatabaseWrapper(c.env.DB);
 
-    // 获取目标用户信息
+    // 获取目标用户信息（含当前角色码）
     const targetUser = await db.get(
-      'SELECT id, username, role, admin_level, created_by, is_system FROM users WHERE id = ?',
+      `SELECT u.id, u.username, r.code AS role_code, u.created_by, u.is_system
+       FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN roles r ON r.id = ur.role_id
+       WHERE u.id = ?`,
       [userId]
     );
 
@@ -1165,9 +1169,12 @@ users.delete('/:userId', authMiddleware, requirePermission(PERMISSION_CODES.syst
       );
     }
 
-    if (targetUser.role === 'admin' && targetUser.admin_level === 'super') {
+    if (targetUser.role_code === ROLE_CODES.super) {
       const superAdminCount = await db.get(
-        "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND admin_level = 'super'"
+        `SELECT COUNT(*) AS count FROM user_roles ur
+         JOIN roles r ON r.id = ur.role_id
+         WHERE r.code = ?`,
+        [ROLE_CODES.super]
       );
       if (Number(superAdminCount?.count) <= 1) {
         return c.json({ error: '系统必须至少保留一个总管理员' }, 400);

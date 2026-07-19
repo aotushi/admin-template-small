@@ -4,7 +4,6 @@ import { defineStore } from "pinia";
 import { logoutApi } from "@/api/modules/auth";
 import { authSessionCoordinator } from "@/api/request";
 import { getAuthSessionSnapshot, subscribeAuthSession } from "@/api/session";
-import { resolveUserAccessRole } from "@/auth/rbac";
 
 export const useAuthStore = defineStore("auth", () => {
   const initialSession = getAuthSessionSnapshot();
@@ -13,7 +12,8 @@ export const useAuthStore = defineStore("auth", () => {
   const sessionRestoreCompleted = shallowRef(Boolean(initialSession.accessToken));
   let restorePromise: null | Promise<boolean> = null;
 
-  const accessRole = computed(() => resolveUserAccessRole(currentUser.value));
+  // super 专属规则（如角色分配入口）用角色码判定；其余显隐一律走权限码
+  const isSuper = computed(() => Boolean(currentUser.value?.roles?.includes("super")));
   const isAuthenticated = computed(() => Boolean(accessToken.value));
 
   subscribeAuthSession((nextSession) => {
@@ -61,11 +61,11 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   return {
-    accessRole,
     accessToken,
     clearSession,
     currentUser,
     isAuthenticated,
+    isSuper,
     logout,
     restoreSession,
     sessionRestoreCompleted,

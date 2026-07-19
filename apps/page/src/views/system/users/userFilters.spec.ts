@@ -5,7 +5,6 @@ import { createDefaultUserFilters, filterUsers, paginateUsers } from "./userFilt
 
 const users: AdminUserListItem[] = [
   {
-    admin_level: "super",
     created_at: "2026-01-01T08:00:00.000Z",
     created_by_username: null,
     department_id: null,
@@ -13,11 +12,11 @@ const users: AdminUserListItem[] = [
     department_parent_name: null,
     email: "vben@example.com",
     id: 1,
-    role: "admin",
+    role_code: "super",
+    role_name: "总管理员",
     username: "vben",
   },
   {
-    admin_level: "sub",
     created_at: "2026-01-02T08:00:00.000Z",
     created_by_username: "vben",
     department_id: 21,
@@ -26,11 +25,11 @@ const users: AdminUserListItem[] = [
     email: "admin@example.com",
     id: 2,
     is_active: 0,
-    role: "admin",
+    role_code: "admin",
+    role_name: "子管理员",
     username: "admin",
   },
   {
-    admin_level: null,
     created_at: "2026-01-03T08:00:00.000Z",
     created_by_username: "admin",
     department_id: 9,
@@ -38,7 +37,8 @@ const users: AdminUserListItem[] = [
     department_parent_name: "销售部",
     email: "jack@example.com",
     id: 3,
-    role: "user",
+    role_code: "user",
+    role_name: "普通用户",
     username: "jack",
   },
 ];

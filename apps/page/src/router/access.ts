@@ -2,16 +2,14 @@ import type { RouteLocationNormalized, RouteMeta, RouteRecordRaw } from "vue-rou
 
 import type { CurrentUser } from "@/api/types";
 import { hasPermission } from "@/auth/permissions";
-import { hasAnyRole } from "@/auth/rbac";
 
-// 声明了 meta.permission 的路由用权限码判定（细粒度、后端实时下发），
-// 未声明的回落到 meta.roles 角色判定（粗粒度、由 role/admin_level 归一）。
+// 声明了 meta.permission 的路由用权限码判定（后端实时下发）；未声明视为登录即可访问。
 function canAccessMeta(meta: RouteMeta | undefined, user: CurrentUser | null) {
   if (meta?.permission) {
     return hasPermission(user, meta.permission);
   }
 
-  return hasAnyRole(user, meta?.roles);
+  return true;
 }
 
 export function canAccessRouteMeta(route: RouteRecordRaw, user: CurrentUser | null) {

@@ -3,11 +3,10 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 
 import {
+  assignUserRole,
   buildUsersScopeCondition,
   requirePermission,
   resolveUserAccess,
-  syncUserRoleBinding,
-  toRoleCode,
   type UserAccess
 } from './permissions';
 
@@ -15,6 +14,7 @@ interface AccessRow {
   code: null | string;
   data_scope: null | string;
   department_id: null | number;
+  role_code?: null | string;
 }
 
 function createDatabase(rows: AccessRow[], onQuery?: () => void) {
@@ -35,11 +35,11 @@ function createDatabase(rows: AccessRow[], onQuery?: () => void) {
 }
 
 describe('resolveUserAccess', () => {
-  it('合并多角色：权限码去重、数据范围取最强', async () => {
+  it('合并多角色：权限码去重、角色码收集、数据范围取最强', async () => {
     const db = createDatabase([
-      { code: 'system:user:view', data_scope: 'self', department_id: 3 },
-      { code: 'system:user:view', data_scope: 'all', department_id: 3 },
-      { code: 'system:user:create', data_scope: 'all', department_id: 3 }
+      { code: 'system:user:view', data_scope: 'self', department_id: 3, role_code: 'admin' },
+      { code: 'system:user:view', data_scope: 'all', department_id: 3, role_code: 'super' },
+      { code: 'system:user:create', data_scope: 'all', department_id: 3, role_code: 'super' }
     ]);
 
     const access = await resolveUserAccess(db, 1);
@@ -47,18 +47,20 @@ describe('resolveUserAccess', () => {
     expect(access.permissionCodes).toEqual(
       new Set(['system:user:view', 'system:user:create'])
     );
+    expect(access.roleCodes).toEqual(new Set(['admin', 'super']));
     expect(access.dataScope).toBe('all');
     expect(access.departmentId).toBe(3);
   });
 
   it('无角色用户兜底为空权限集 + self 范围', async () => {
     const db = createDatabase([
-      { code: null, data_scope: null, department_id: null }
+      { code: null, data_scope: null, department_id: null, role_code: null }
     ]);
 
     const access = await resolveUserAccess(db, 1);
 
     expect(access.permissionCodes.size).toBe(0);
+    expect(access.roleCodes.size).toBe(0);
     expect(access.dataScope).toBe('self');
     expect(access.departmentId).toBeNull();
   });
@@ -68,7 +70,7 @@ describe('requirePermission', () => {
   function createApp(rows: AccessRow[], onQuery?: () => void) {
     const app = new Hono();
     app.use('*', async (c, next) => {
-      c.set('user' as never, { id: 1, role: 'admin', username: 'tester' } as never);
+      c.set('user' as never, { id: 1, role_codes: ['admin'], username: 'tester' } as never);
       await next();
     });
     app.get(
@@ -109,7 +111,7 @@ describe('requirePermission', () => {
   it('传数组时任一权限码命中即放行', async () => {
     const app = new Hono();
     app.use('*', async (c, next) => {
-      c.set('user' as never, { id: 1, role: 'admin', username: 'tester' } as never);
+      c.set('user' as never, { id: 1, role_codes: ['admin'], username: 'tester' } as never);
       await next();
     });
     app.get(
@@ -131,17 +133,7 @@ describe('requirePermission', () => {
   });
 });
 
-describe('toRoleCode', () => {
-  it('与迁移 019 回填规则一致', () => {
-    expect(toRoleCode('admin', 'super')).toBe('super');
-    expect(toRoleCode('admin', 'sub')).toBe('admin');
-    expect(toRoleCode('admin', null)).toBe('admin');
-    expect(toRoleCode('user', null)).toBe('user');
-    expect(toRoleCode(null, null)).toBe('user');
-  });
-});
-
-describe('syncUserRoleBinding', () => {
+describe('assignUserRole', () => {
   it('先清空旧绑定，再按角色码插入新绑定', async () => {
     const calls: Array<{ params: any[]; query: string }> = [];
     const db = {
@@ -150,7 +142,7 @@ describe('syncUserRoleBinding', () => {
       }
     };
 
-    await syncUserRoleBinding(db, 42, 'admin', 'super');
+    await assignUserRole(db, 42, 'super');
 
     expect(calls).toHaveLength(2);
     expect(calls[0].query).toBe('DELETE FROM user_roles WHERE user_id = ?');
@@ -165,6 +157,7 @@ describe('buildUsersScopeCondition', () => {
     dataScope: 'self',
     departmentId: null,
     permissionCodes: new Set(),
+    roleCodes: new Set(),
     ...overrides
   });
 

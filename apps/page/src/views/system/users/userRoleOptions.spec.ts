@@ -1,26 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { toRoleFields, toRoleOption } from "./userRoleOptions";
+import { toRoleOption } from "./userRoleOptions";
 
 describe("toRoleOption", () => {
-  it("归一规则与后端 toRoleCode 一致", () => {
-    expect(toRoleOption({ admin_level: "super", role: "admin" })).toBe("super");
-    expect(toRoleOption({ admin_level: "sub", role: "admin" })).toBe("admin");
-    expect(toRoleOption({ admin_level: null, role: "admin" })).toBe("admin");
-    expect(toRoleOption({ admin_level: null, role: "user" })).toBe("user");
-  });
-});
-
-describe("toRoleFields", () => {
-  it("角色选项映射回 role/admin_level 字段", () => {
-    expect(toRoleFields("super")).toEqual({ admin_level: "super", role: "admin" });
-    expect(toRoleFields("admin")).toEqual({ admin_level: "sub", role: "admin" });
-    expect(toRoleFields("user")).toEqual({ admin_level: null, role: "user" });
+  it("内置角色码直接映射", () => {
+    expect(toRoleOption({ role_code: "super" })).toBe("super");
+    expect(toRoleOption({ role_code: "admin" })).toBe("admin");
+    expect(toRoleOption({ role_code: "user" })).toBe("user");
   });
 
-  it("与 toRoleOption 互为往返", () => {
-    for (const option of ["super", "admin", "user"] as const) {
-      expect(toRoleOption(toRoleFields(option))).toBe(option);
-    }
+  it("自定义角色码与无绑定归入 user 展示", () => {
+    expect(toRoleOption({ role_code: "role_4" })).toBe("user");
+    expect(toRoleOption({ role_code: null })).toBe("user");
+    expect(toRoleOption({})).toBe("user");
   });
 });

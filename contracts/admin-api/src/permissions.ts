@@ -50,7 +50,7 @@ export const DATA_SCOPE_RANK: Record<DataScope, number> = {
   self: 1,
 };
 
-/** 角色码：与 users.role/admin_level 的归一结果一致（super/admin/user） */
+/** 内置角色码（roles 表种子）；用户的角色归属唯一来源是 user_roles 表 */
 export const ROLE_CODES = {
   admin: "admin",
   super: "super",

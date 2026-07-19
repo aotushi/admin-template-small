@@ -1,7 +1,8 @@
 import { AUTH_ERROR_CODES } from '@admin-backend-3/admin-api-contract/auth';
 import { JwtTokenExpired } from 'hono/utils/jwt/types';
-import { isSuperAdmin } from './permissions';
+import { isAnyAdmin, isSuperAdmin } from './permissions';
 import { DatabaseWrapper } from '../models/database';
+import { resolveUserAccess, setUserAccessContext } from '../services/permissions';
 import { createUserPayload, verifyAuthToken } from '../services/tokens';
 import { authError } from '../services/auth-responses';
 import { revokeRefreshSessionsForUser } from '../services/refresh-sessions';
@@ -61,7 +62,7 @@ export const authMiddleware = async (c: any, next: any) => {
 
   const db = new DatabaseWrapper(c.env.DB);
   const currentUser = await db.get(
-    'SELECT id, username, role, admin_level, created_by, is_active FROM users WHERE id = ?',
+    'SELECT id, username, created_by, is_active FROM users WHERE id = ?',
     [payload.id]
   );
 
@@ -80,18 +81,21 @@ export const authMiddleware = async (c: any, next: any) => {
     );
   }
 
-  c.set('user', createUserPayload(currentUser));
+  // 角色码与权限一次解析：payload 装 role_codes，access 预填 context 缓存供 requirePermission 复用
+  const access = await resolveUserAccess(c.env.DB, currentUser.id);
+  setUserAccessContext(c, access);
+  c.set('user', createUserPayload(currentUser, [...access.roleCodes]));
   await next();
 };
 
 /**
  * 管理员权限中间件
- * 验证当前用户是否具有管理员角色
+ * 验证当前用户是否具有管理员角色（内置角色码 super / admin）
  * 必须在 authMiddleware 之后使用
  */
 export const adminMiddleware = async (c: any, next: any) => {
   const user = c.get('user');
-  if (user.role !== 'admin') {
+  if (!isAnyAdmin(user)) {
     return authError(c, 403, AUTH_ERROR_CODES.forbidden, '权限不足，仅管理员可操作');
   }
   await next();
@@ -99,7 +103,7 @@ export const adminMiddleware = async (c: any, next: any) => {
 
 /**
  * 总管理员权限中间件
- * 验证当前用户是否为总管理员（admin_level === 'super'）
+ * 验证当前用户是否为总管理员（角色码 super）
  * 必须在 authMiddleware 之后使用
  */
 export const superAdminMiddleware = async (c: any, next: any) => {

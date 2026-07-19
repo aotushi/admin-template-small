@@ -30,7 +30,7 @@ describe("auth query options", () => {
       tokenType: "Bearer",
       user: {
         id: 1,
-        role: "admin",
+        roles: ["admin"],
         username: "vben",
       },
     });

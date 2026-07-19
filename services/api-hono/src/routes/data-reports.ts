@@ -37,7 +37,7 @@ import * as XLSX from 'xlsx';
 import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import { authMiddleware, adminMiddleware, superAdminMiddleware } from '../middlewares/auth';
-import { isSuperAdmin, isSubAdmin } from '../middlewares/permissions';
+import { isAnyAdmin, isSuperAdmin, isSubAdmin } from '../middlewares/permissions';
 import { getCurrentShanghaiTime } from '../utils/datetime';
 import { logger } from '../utils/logger';
 import {
@@ -463,7 +463,7 @@ dataReports.get('/list', authMiddleware, async (c) => {
     const params: any[] = [];
 
     // 普通用户只能查看已发布的自己的产品报告
-    if (currentUser.role === 'user') {
+    if (!isAnyAdmin(currentUser)) {
       conditions.push('dr.status = ?');
       params.push('published');
 
@@ -517,12 +517,15 @@ dataReports.get('/edit', authMiddleware, adminMiddleware, async (c) => {
 
     if (isSuperAdmin(currentUser)) {
       // 总管理员：可以看到所有用户（包括子管理员和普通用户）
-      const allUsers = await db.all('SELECT id FROM users WHERE role IN ("user", "admin")');
+      const allUsers = await db.all('SELECT id FROM users');
       visibleUserIds = allUsers.map((u: any) => u.id);
     } else if (isSubAdmin(currentUser)) {
       // 子管理员：可以看到自己创建的用户 + 自己本身
       const myUsers = await db.all(
-        'SELECT id FROM users WHERE created_by = ? AND role = "user"',
+        `SELECT u.id FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+         JOIN roles r ON r.id = ur.role_id
+         WHERE u.created_by = ? AND r.code = 'user'`,
         [currentUser.id]
       );
       visibleUserIds = myUsers.map((u: any) => u.id);
@@ -864,7 +867,10 @@ dataReports.get('/edit', authMiddleware, adminMiddleware, async (c) => {
       // 总管理员：按子管理员分组
       // 获取所有子管理员列表
       const subAdmins = await db.all(
-        'SELECT id, username FROM users WHERE role = "admin" AND admin_level = "sub"'
+        `SELECT u.id, u.username FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+         JOIN roles r ON r.id = ur.role_id
+         WHERE r.code = 'admin'`
       );
 
       const subAdminGroups = [];
@@ -965,7 +971,7 @@ dataReports.get('/:id', authMiddleware, async (c) => {
     }
 
     // 权限检查：普通用户只能查看已发布且属于自己的报告
-    if (currentUser.role === 'user') {
+    if (!isAnyAdmin(currentUser)) {
       if (report.status !== 'published') {
         return c.json({ error: '权限不足' }, 403);
       }
@@ -1201,7 +1207,10 @@ dataReports.post('/publish', authMiddleware, adminMiddleware, async (c) => {
     if (adminId) {
       // 子管理员层级统一发布：获取该子管理员下所有用户
       const users = await db.all(
-        'SELECT id FROM users WHERE created_by = ? AND role = "user"',
+        `SELECT u.id FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+         JOIN roles r ON r.id = ur.role_id
+         WHERE u.created_by = ? AND r.code = 'user'`,
         [adminId]
       );
       targetUserIds = users.map((u: any) => u.id);

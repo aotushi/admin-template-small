@@ -4,7 +4,7 @@ import type { CurrentUser } from "@/api/types";
 import { hasAnyPermission, hasPermission } from "./permissions";
 
 function createUser(permissions?: string[]): CurrentUser {
-  return { id: 1, role: "admin", username: "tester", permissions };
+  return { id: 1, roles: ["admin"], username: "tester", permissions };
 }
 
 describe("hasPermission", () => {

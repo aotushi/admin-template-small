@@ -16,7 +16,7 @@
 | 菜单从哪里来   | 从 `appRoutes` 的路由 `meta` 派生                                 |
 | 未登录如何拦截 | 全局路由守卫跳转 `/login`，并保留 `redirect`                      |
 | 无权限如何处理 | 全局路由守卫跳转 `/403`                                           |
-| 权限如何表达   | 优先 `meta.permission` 权限码（后端下发），回落 `meta.roles` 角色 |
+| 权限如何表达   | `meta.permission` 权限码（后端下发）；未声明权限码的路由登录即可访问 |
 | 按钮级权限     | `v-permission` 指令按权限码控制按钮显隐                           |
 
 ## 2. 源码位置
@@ -29,7 +29,6 @@
 | `src/router/access.ts`                 | 判断用户是否能访问当前路由（守卫与菜单共用）             |
 | `src/router/menu.ts`                   | 根据路由和用户权限生成侧边栏菜单数据                     |
 | `src/router/redirect.ts`               | 登录后跳转目标解析（防开放重定向）                       |
-| `src/auth/rbac.ts`                     | 把后端用户字段映射为前端访问角色                         |
 | `src/auth/permissions.ts`              | 权限码判定（`hasPermission`）                            |
 | `src/directives/permission.ts`         | `v-permission` 按钮级权限指令                            |
 | `src/stores/auth.ts`                   | 保存当前 token、用户快照（含 `permissions` 权限码）      |
@@ -51,8 +50,7 @@
 | `guestOnly`    | 已登录用户访问时自动跳回后台                                                    |
 | `hideInMenu`   | 是否隐藏在侧边栏中                                                              |
 | `activeMenu`   | 隐藏详情页用于高亮对应菜单                                                      |
-| `roles`        | 允许访问的前端角色：`super / admin / user`                                      |
-| `permission`   | RBAC 权限码（生效）：声明后由后端下发的 `user.permissions` 判定，优先于 `roles` |
+| `permission`   | RBAC 权限码：声明后由后端下发的 `user.permissions` 判定；未声明的路由登录即可访问 |
 
 示例（`/system/users`、`/system/roles` 是 `meta.permission` 样板）：
 
@@ -64,44 +62,26 @@ import { PERMISSION_CODES } from "@admin-backend-3/admin-api-contract/permission
   name: "SystemUsers",
   meta: {
     title: "用户管理",
-    // 由后端实时解析的权限码判定访问，roles 不再参与本路由
+    // 由后端实时解析的权限码判定访问
     permission: PERMISSION_CODES.systemUserView,
   },
 }
 ```
 
-判定规则（`src/router/access.ts`）：声明了 `meta.permission` 的路由用权限码判定（细粒度，改权限后刷新令牌即生效）；未声明的回落到 `meta.roles` 角色判定（粗粒度）。菜单生成复用同一判定，无权限的菜单项自动隐藏。
+判定规则（`src/router/access.ts`）：声明了 `meta.permission` 的路由用权限码判定（细粒度，改权限后刷新令牌即生效）；未声明的路由登录即可访问（概览、公共组件等布局级路由无需细粒度权限码）。菜单生成复用同一判定，无权限的菜单项自动隐藏。
 
-### 权限双轨的现状
+`meta.roles` 角色回落已随 `users.role / users.admin_level` 字段删除（迁移 022）一并移除：路由与菜单显隐一律走权限码，角色码只用于展示和 super 专属规则。
 
-目前 `meta` 里存在两种权限相关字段：
+## 4. RBAC 数据来源
 
-| 字段         | 状态         | 使用范围                                                                 |
-| ------------ | ------------ | ------------------------------------------------------------------------ |
-| `permission` | 生效         | 全部四个系统管理页（用户/角色/菜单/部门），权限码来自迁移 021 的菜单种子 |
-| `roles`      | 生效（回落） | 概览、系统管理容器等布局级路由（无对应细粒度权限码，属合理回落）         |
-
-业务页的 `roles -> permission` 迁移已全部完成（第 9 节）；原先展示用的 `permissions` 占位字段随占位路由一并删除。
-
-## 4. RBAC 映射
-
-后端当前用户字段中已有：
+后端在登录/刷新响应里实时解析下发两个数组（不进 JWT，改角色或权限后刷新令牌即生效）：
 
 ```text
-role
-admin_level
-permissions   # 登录/刷新时由后端按 user_roles -> roles -> role_menus -> menus.auth_code 实时解析下发
+roles         # 角色码列表，按 user_roles -> roles 解析；仅用于展示与 super 专属规则（stores/auth.ts 的 isSuper）
+permissions   # 权限码列表，按 user_roles -> roles -> role_menus -> menus.auth_code 解析；路由/菜单/按钮显隐的唯一判定依据
 ```
 
-前端把 `role + admin_level` 映射为三种访问角色：
-
-| 后端字段组合                            | 前端角色 |
-| --------------------------------------- | -------- |
-| `role = admin` 且 `admin_level = super` | `super`  |
-| `role = admin`                          | `admin`  |
-| 其它普通用户                            | `user`   |
-
-角色用于粗粒度回落判定；权限码 `permissions` 用于细粒度判定和按钮显隐。两者都来自登录响应，权限变更在下次刷新令牌后生效。
+`users` 表本身不存角色字段（`role` / `admin_level` 已在迁移 022 删除），`user_roles` 绑定表是角色归属的唯一数据源。前端不再做"后端字段 -> 前端访问角色"的映射（原 `src/auth/rbac.ts` 已删除）。
 
 ## 5. 守卫流程
 
@@ -135,6 +115,7 @@ permissions   # 登录/刷新时由后端按 user_roles -> roles -> role_menus -
   -> 按用户权限过滤（与守卫共用 access.ts 的同一判定）
   -> 去掉 hideInMenu
   -> 按 order 排序
+  -> 目录路由子项全被权限过滤后整体隐藏（避免空目录）
   -> 生成侧边栏菜单
 ```
 
@@ -286,7 +267,7 @@ routes.ts（手写路由表）
 | 短板                  | 说明                                                                                                                   | 严重程度 |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------- |
 | 403 暴露路径存在性    | 无权限用户直达 `/system/roles` 得到 403 而非 404，等于告知该路径存在。内部后台无所谓；安全敏感场景需要 7.3 的 404 语义 | 低       |
-| 权限双轨并存          | 业务路由已全部迁到 `permission`；`roles` 回落仅剩布局级路由（概览、系统管理容器），见第 9 节                           | 已收敛   |
+| ~~权限双轨并存~~      | `meta.roles` 已随迁移 022 删除，路由判定只剩 `permission` 单轨，见第 9 节                                              | 已消除   |
 | routes.ts 单文件      | 当前约 400 行可接受；页面继续增长应拆成 `routes/modules/*`                                                             | 低       |
 | bundle 含全部路由声明 | 懒加载下泄露的只是路径字符串，页面代码本身不会提前加载                                                                 | 低       |
 
@@ -301,7 +282,7 @@ routes.ts（手写路由表）
 
 ## 9. 权限字段迁移状态
 
-"迁移完成"指的是：**所有业务路由的访问判定从 `meta.roles`（角色粗粒度）迁到 `meta.permission`（权限码细粒度），`roles` 和占位的 `permissions` 字段从业务路由上删除**。
+"迁移完成"指的是：**所有业务路由的访问判定从 `meta.roles`（角色粗粒度）迁到 `meta.permission`（权限码细粒度），`roles` 字段从 meta 类型中整体删除**。
 
 每迁移一个路由需要三件事配套（权限模型换代后，权限码收敛到菜单表）：
 
@@ -320,7 +301,7 @@ routes.ts（手写路由表）
 | `/system/menus` | `permission`（system:menu:view） | ✅ 已迁移 |
 | `/system/depts` | `permission`（system:dept:view） | ✅ 已迁移 |
 
-仍在使用 `roles` 回落的只剩布局级路由（概览 `/dashboard`、系统管理容器 `/system`），它们没有对应的细粒度权限码，属于合理回落，不在迁移范围内。权限码全集 16 个：`system:{user,role,menu,dept}:{view,create,update,delete}`，与迁移 021 的菜单种子一一对应。
+`meta.roles` 与 `src/auth/rbac.ts` 已随迁移 022（删除 `users.role / users.admin_level`）整体移除。布局级路由（概览 `/dashboard`、系统管理容器 `/system`）不声明权限码，登录即可访问；系统管理目录在子项全被权限过滤后由菜单层整体隐藏。权限码全集 16 个：`system:{user,role,menu,dept}:{view,create,update,delete}`，与迁移 021 的菜单种子一一对应。
 
 ## 10. 参考项目方案对比
 
@@ -343,7 +324,7 @@ routes.ts（手写路由表）
 | -------- | ----------------------------------------- | ------------------------------ |
 | 路由来源 | 前端静态路由                              | 前端、后端、混合三种来源       |
 | 路由注册 | 启动时注册完整路由                        | 登录后生成并动态注入可访问路由 |
-| 权限字段 | `permission`（生效）、`roles`（回落）     | `authority`、`accessCodes`     |
+| 权限字段 | `permission`（唯一判定）                  | `authority`、`accessCodes`     |
 | 菜单来源 | 从静态 `appRoutes` 派生过滤               | 从最终动态路由生成             |
 | 按钮权限 | `v-permission` 指令（后端下发权限码判定） | 已提供指令和组件               |
 | 复杂度   | 低，适合当前阶段                          | 高，适合成熟模板和复杂后台     |
@@ -368,7 +349,7 @@ routes.ts（手写路由表）
 | 角色管理页 `/system/roles`（`meta.permission: system:role:view`，仅 super 种子含该码） | 已完成 |
 | 菜单管理页 `/system/menus`（菜单树作为权限数据源，见迁移 021）                         | 已完成 |
 | 部门管理页 `/system/depts`（部门树 CRUD + 用户挂靠末级部门）                           | 已完成 |
-| 业务路由 `roles -> permission` 全量迁移（仅布局级路由保留 roles 回落）                 | 已完成 |
+| 业务路由 `roles -> permission` 全量迁移，`meta.roles` 整体删除（迁移 022 配套）        | 已完成 |
 
 演进路线（与业界 vue-element-admin / vben 的演进顺序一致）：
 

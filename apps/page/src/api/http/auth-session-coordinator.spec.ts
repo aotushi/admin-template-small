@@ -35,7 +35,7 @@ function makeSession(accessToken: string, expiresInMs = 15 * 60_000): AuthSessio
     tokenType: "Bearer",
     user: {
       id: 1,
-      role: "admin",
+      roles: ["admin"],
       username: "vben",
     },
   };

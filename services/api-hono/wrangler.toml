@@ -23,9 +23,3 @@ database_id = "0d4b3f53-5450-4c4c-8a4f-5621c86e5e77"
 [[routes]]
 pattern = "api3.9shi.cc"
 custom_domain = true
-
-# 定时任务：
-# - UTC 00:00（北京时间08:00）：保存前一天每日数据统计到 D1
-# - UTC 16:00（北京时间00:00）：清理 draft 数据
-[triggers]
-crons = ["0 0 * * *", "0 16 * * *"]

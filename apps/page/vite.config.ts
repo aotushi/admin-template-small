@@ -40,6 +40,8 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "0.0.0.0",
       port,
+      // 端口被占时直接报错而不是静默漂移，避免 Origin 变化触发后端 ORIGIN_NOT_ALLOWED
+      strictPort: true,
       proxy: {
         "/admin": {
           changeOrigin: true,

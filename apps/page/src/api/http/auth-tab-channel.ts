@@ -4,7 +4,7 @@ const DEFAULT_CHANNEL_NAME = "auth-session-coordination";
 const DEFAULT_LOCK_NAME = "auth-session-lock";
 const DEFAULT_PEER_RESPONSE_TIMEOUT_MS = 100;
 
-export type AuthCoordinationEvent<S extends AuthSession = AuthSession> =
+export type AuthTabChannelEvent<S extends AuthSession = AuthSession> =
   | {
       sentAt: number;
       session: S;
@@ -17,11 +17,11 @@ export type AuthCoordinationEvent<S extends AuthSession = AuthSession> =
       type: "session-ended";
     };
 
-type AuthCoordinationListener<S extends AuthSession> = (event: AuthCoordinationEvent<S>) => void;
+type AuthTabChannelListener<S extends AuthSession> = (event: AuthTabChannelEvent<S>) => void;
 
-type AuthCoordinationWireMessage<S extends AuthSession> =
+type AuthTabChannelWireMessage<S extends AuthSession> =
   | {
-      event: AuthCoordinationEvent<S>;
+      event: AuthTabChannelEvent<S>;
       kind: "event";
       sourceId: string;
     }
@@ -50,24 +50,24 @@ type AuthCoordinationWireMessage<S extends AuthSession> =
       sourceId: string;
     };
 
-export interface AuthCoordination<S extends AuthSession = AuthSession> {
+export interface AuthTabChannel<S extends AuthSession = AuthSession> {
   dispose(): void;
-  publish(event: AuthCoordinationEvent<S>): void;
+  publish(event: AuthTabChannelEvent<S>): void;
   requestPeerSession(): Promise<null | S>;
   runExclusive<T>(task: () => Promise<T>): Promise<T>;
-  subscribe(listener: AuthCoordinationListener<S>): () => void;
+  subscribe(listener: AuthTabChannelListener<S>): () => void;
 }
 
-export interface BrowserAuthCoordinationOptions {
+export interface BrowserAuthTabChannelOptions {
   channelName?: string;
   lockName?: string;
   /** 已知存在 peer 标签页时，等待对方回传会话的上限。 */
   peerResponseTimeoutMs?: number;
 }
 
-export function createNoopAuthCoordination<
+export function createNoopAuthTabChannel<
   S extends AuthSession = AuthSession,
->(): AuthCoordination<S> {
+>(): AuthTabChannel<S> {
   return {
     dispose() {},
     publish() {},
@@ -85,16 +85,16 @@ export function createNoopAuthCoordination<
 
 let warnedMissingWebLocks = false;
 
-export function createBrowserAuthCoordination<S extends AuthSession = AuthSession>(
+export function createBrowserAuthTabChannel<S extends AuthSession = AuthSession>(
   readSession: () => null | S,
-  options: BrowserAuthCoordinationOptions = {},
-): AuthCoordination<S> {
+  options: BrowserAuthTabChannelOptions = {},
+): AuthTabChannel<S> {
   const channelName = options.channelName ?? DEFAULT_CHANNEL_NAME;
   const lockName = options.lockName ?? DEFAULT_LOCK_NAME;
   const peerResponseTimeoutMs = options.peerResponseTimeoutMs ?? DEFAULT_PEER_RESPONSE_TIMEOUT_MS;
 
   const sourceId = crypto.randomUUID();
-  const listeners = new Set<AuthCoordinationListener<S>>();
+  const listeners = new Set<AuthTabChannelListener<S>>();
   // 已知存活的 peer 标签页；为空时跳过会话索取，省掉冷启动的等待。
   const knownPeers = new Set<string>();
   const pendingSessionRequests = new Map<
@@ -107,11 +107,11 @@ export function createBrowserAuthCoordination<S extends AuthSession = AuthSessio
   const channel =
     typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(channelName);
 
-  function post(message: AuthCoordinationWireMessage<S>) {
+  function post(message: AuthTabChannelWireMessage<S>) {
     channel?.postMessage(message);
   }
 
-  channel?.addEventListener("message", (message: MessageEvent<AuthCoordinationWireMessage<S>>) => {
+  channel?.addEventListener("message", (message: MessageEvent<AuthTabChannelWireMessage<S>>) => {
     const wireMessage = message.data;
     if (!wireMessage || wireMessage.sourceId === sourceId) {
       return;
@@ -216,7 +216,7 @@ export function createBrowserAuthCoordination<S extends AuthSession = AuthSessio
         // 服务端重放检测。服务端轮换宽限期是这里的最后一道兜底。
         if (!warnedMissingWebLocks) {
           warnedMissingWebLocks = true;
-          console.warn("[auth-coordination] Web Locks 不可用，跨标签页刷新失去互斥保护");
+          console.warn("[auth-tab-channel] Web Locks 不可用，跨标签页刷新失去互斥保护");
         }
         return task();
       }

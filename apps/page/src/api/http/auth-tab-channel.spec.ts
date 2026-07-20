@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createBrowserAuthCoordination } from "@/api/http/auth-coordination";
+import { createBrowserAuthTabChannel } from "@/api/http/auth-tab-channel";
 import type { AuthSession } from "@/api/http/types";
 
 function makeSession(accessToken: string): AuthSession {
@@ -48,7 +48,7 @@ class FakeBroadcastChannel {
   }
 }
 
-describe("createBrowserAuthCoordination", () => {
+describe("createBrowserAuthTabChannel", () => {
   beforeEach(() => {
     vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
   });
@@ -60,7 +60,7 @@ describe("createBrowserAuthCoordination", () => {
   });
 
   it("resolves immediately without waiting when no peer tab is known", async () => {
-    const solo = createBrowserAuthCoordination(() => null, { channelName: "solo" });
+    const solo = createBrowserAuthTabChannel(() => null, { channelName: "solo" });
 
     vi.useFakeTimers();
     // 不推进任何计时器也能拿到结果，说明单标签页没有固定等待。
@@ -69,10 +69,10 @@ describe("createBrowserAuthCoordination", () => {
   });
 
   it("shares the session from an existing tab discovered via the hello handshake", async () => {
-    const older = createBrowserAuthCoordination(() => makeSession("older-tab-token"), {
+    const older = createBrowserAuthTabChannel(() => makeSession("older-tab-token"), {
       channelName: "share",
     });
-    const newer = createBrowserAuthCoordination(() => null, { channelName: "share" });
+    const newer = createBrowserAuthTabChannel(() => null, { channelName: "share" });
 
     await expect(newer.requestPeerSession()).resolves.toMatchObject({
       accessToken: "older-tab-token",
@@ -83,8 +83,8 @@ describe("createBrowserAuthCoordination", () => {
   });
 
   it("falls back to null after the timeout when peers have no session", async () => {
-    const first = createBrowserAuthCoordination(() => null, { channelName: "empty" });
-    const second = createBrowserAuthCoordination(() => null, { channelName: "empty" });
+    const first = createBrowserAuthTabChannel(() => null, { channelName: "empty" });
+    const second = createBrowserAuthTabChannel(() => null, { channelName: "empty" });
 
     vi.useFakeTimers();
     const pending = second.requestPeerSession();
@@ -96,10 +96,10 @@ describe("createBrowserAuthCoordination", () => {
   });
 
   it("forgets a disposed peer and stops waiting for it", async () => {
-    const leaving = createBrowserAuthCoordination(() => makeSession("leaving-token"), {
+    const leaving = createBrowserAuthTabChannel(() => makeSession("leaving-token"), {
       channelName: "bye",
     });
-    const staying = createBrowserAuthCoordination(() => null, { channelName: "bye" });
+    const staying = createBrowserAuthTabChannel(() => null, { channelName: "bye" });
 
     leaving.dispose();
 
@@ -109,8 +109,8 @@ describe("createBrowserAuthCoordination", () => {
   });
 
   it("delivers published events to other tabs but not back to the publisher", () => {
-    const publisher = createBrowserAuthCoordination(() => null, { channelName: "events" });
-    const subscriberTab = createBrowserAuthCoordination(() => null, { channelName: "events" });
+    const publisher = createBrowserAuthTabChannel(() => null, { channelName: "events" });
+    const subscriberTab = createBrowserAuthTabChannel(() => null, { channelName: "events" });
     const publisherListener = vi.fn();
     const subscriberListener = vi.fn();
     publisher.subscribe(publisherListener);

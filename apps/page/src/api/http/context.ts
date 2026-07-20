@@ -1,6 +1,6 @@
 import axios, { type AxiosResponse } from "axios";
 
-import { createNoopAuthCoordination, type AuthCoordination } from "@/api/http/auth-coordination";
+import { createNoopAuthTabChannel, type AuthTabChannel } from "@/api/http/auth-tab-channel";
 import { AuthSessionCoordinator } from "@/api/http/auth-session-coordinator";
 import { HttpClient } from "@/api/http/client";
 import { createHttpConfig } from "@/api/http/config";
@@ -24,12 +24,12 @@ export interface HttpClientContext<S extends AuthSession> {
 
 export function createHttpClientContext<S extends AuthSession>(
   options: HttpClientContextOptions & {
-    coordination?: AuthCoordination<S>;
+    tabChannel?: AuthTabChannel<S>;
     errorClassifier: AuthErrorClassifier;
     sessionStore: AuthSessionStore<S>;
   },
 ): HttpClientContext<S> {
-  const coordination = options.coordination ?? createNoopAuthCoordination<S>();
+  const tabChannel = options.tabChannel ?? createNoopAuthTabChannel<S>();
   const proactiveRefreshWindowMs =
     options.proactiveRefreshWindowMs ?? DEFAULT_PROACTIVE_REFRESH_WINDOW_MS;
 
@@ -48,7 +48,7 @@ export function createHttpClientContext<S extends AuthSession>(
   };
 
   const authSessionCoordinator = new AuthSessionCoordinator<S>({
-    coordination,
+    tabChannel,
     errorClassifier: options.errorClassifier,
     peerSessionMinRemainingMs: options.peerSessionMinRemainingMs ?? proactiveRefreshWindowMs,
     requestRefresh,

@@ -7,10 +7,10 @@ import {
 import type { CreateAxiosDefaults } from "axios";
 
 import {
-  createBrowserAuthCoordination,
+  createBrowserAuthTabChannel,
   createHttpClientContext,
-  createNoopAuthCoordination,
-  type AuthCoordination,
+  createNoopAuthTabChannel,
+  type AuthTabChannel,
   type AuthErrorClassifier,
 } from "@/api/http";
 import { authSessionStore, getPreferredLocale } from "@/api/session";
@@ -29,14 +29,14 @@ const adminAuthErrorClassifier: AuthErrorClassifier = {
   },
 };
 
-/** 装配本项目请求上下文；测试传入自定义 adapter 和 noop 协调即可获得隔离实例。 */
+/** 装配本项目请求上下文；测试传入自定义 adapter 和 noop 标签页通道即可获得隔离实例。 */
 export function createAdminHttpContext(
   axiosDefaults: CreateAxiosDefaults = {},
-  coordination?: AuthCoordination<AuthSessionResult>,
+  tabChannel?: AuthTabChannel<AuthSessionResult>,
 ) {
   return createHttpClientContext<AuthSessionResult>({
     axiosDefaults: { baseURL: API_BASE_URL, ...axiosDefaults },
-    coordination,
+    tabChannel,
     errorClassifier: adminAuthErrorClassifier,
     getPreferredLanguage: getPreferredLocale,
     refreshUrl: REFRESH_SESSION_URL,
@@ -47,8 +47,8 @@ export function createAdminHttpContext(
 const productionContext = createAdminHttpContext(
   {},
   import.meta.env.MODE === "test"
-    ? createNoopAuthCoordination<AuthSessionResult>()
-    : createBrowserAuthCoordination<AuthSessionResult>(() => authSessionStore.getSession(), {
+    ? createNoopAuthTabChannel<AuthSessionResult>()
+    : createBrowserAuthTabChannel<AuthSessionResult>(() => authSessionStore.getSession(), {
         channelName: "admin-backend-3-auth",
         lockName: "admin-backend-3-auth-session",
       }),

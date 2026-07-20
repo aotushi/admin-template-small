@@ -2,12 +2,12 @@
 // 本目录不依赖任何具体项目模块，宿主项目通过 createHttpClientContext 注入
 // 会话存储与错误分类后获得 requestClient 与 authSessionCoordinator。
 export {
-  createBrowserAuthCoordination,
-  createNoopAuthCoordination,
-  type AuthCoordination,
-  type AuthCoordinationEvent,
-  type BrowserAuthCoordinationOptions,
-} from "@/api/http/auth-coordination";
+  createBrowserAuthTabChannel,
+  createNoopAuthTabChannel,
+  type AuthTabChannel,
+  type AuthTabChannelEvent,
+  type BrowserAuthTabChannelOptions,
+} from "@/api/http/auth-tab-channel";
 export {
   AuthSessionCoordinator,
   type AuthRefreshReason,

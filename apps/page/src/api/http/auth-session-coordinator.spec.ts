@@ -4,8 +4,8 @@ import {
   isTerminalAuthErrorCode,
 } from "@admin-backend-3/admin-api-contract/auth";
 
-import type { AuthCoordination, AuthCoordinationEvent } from "@/api/http/auth-coordination";
-import { createNoopAuthCoordination } from "@/api/http/auth-coordination";
+import type { AuthTabChannel, AuthTabChannelEvent } from "@/api/http/auth-tab-channel";
+import { createNoopAuthTabChannel } from "@/api/http/auth-tab-channel";
 import { AuthSessionCoordinator } from "@/api/http/auth-session-coordinator";
 import type { AuthErrorClassifier } from "@/api/http/types";
 import {
@@ -43,10 +43,10 @@ function makeSession(accessToken: string, expiresInMs = 15 * 60_000): AuthSessio
 
 function createCoordinator(
   requestRefresh: () => Promise<AuthSessionResult>,
-  coordination: AuthCoordination<AuthSessionResult> = createNoopAuthCoordination(),
+  tabChannel: AuthTabChannel<AuthSessionResult> = createNoopAuthTabChannel(),
 ) {
   return new AuthSessionCoordinator<AuthSessionResult>({
-    coordination,
+    tabChannel,
     errorClassifier,
     requestRefresh,
     sessionStore: authSessionStore,
@@ -72,9 +72,9 @@ function createSharedExclusiveRunner() {
   };
 }
 
-function createSharedCoordination(
+function createSharedTabChannel(
   runExclusive: ReturnType<typeof createSharedExclusiveRunner>,
-): AuthCoordination<AuthSessionResult> {
+): AuthTabChannel<AuthSessionResult> {
   return {
     dispose() {},
     publish() {},
@@ -97,8 +97,8 @@ describe("AuthSessionCoordinator", () => {
     saveAuthSession(makeSession("old-access-token"));
     const runExclusive = createSharedExclusiveRunner();
     const requestRefresh = vi.fn(async () => makeSession("new-access-token"));
-    const first = createCoordinator(requestRefresh, createSharedCoordination(runExclusive));
-    const second = createCoordinator(requestRefresh, createSharedCoordination(runExclusive));
+    const first = createCoordinator(requestRefresh, createSharedTabChannel(runExclusive));
+    const second = createCoordinator(requestRefresh, createSharedTabChannel(runExclusive));
 
     const results = await Promise.all([first.refresh("reactive"), second.refresh("reactive")]);
 
@@ -115,11 +115,11 @@ describe("AuthSessionCoordinator", () => {
     saveAuthSession(makeSession("old-access-token"));
     const requestRefresh = vi.fn(async () => makeSession("unexpected-access-token"));
     const peerSession = makeSession("peer-access-token");
-    const coordination: AuthCoordination<AuthSessionResult> = {
-      ...createNoopAuthCoordination<AuthSessionResult>(),
+    const tabChannel: AuthTabChannel<AuthSessionResult> = {
+      ...createNoopAuthTabChannel<AuthSessionResult>(),
       requestPeerSession: vi.fn(async () => peerSession),
     };
-    const coordinator = createCoordinator(requestRefresh, coordination);
+    const coordinator = createCoordinator(requestRefresh, tabChannel);
 
     await expect(coordinator.refresh("reactive")).resolves.toEqual(peerSession);
 
@@ -133,11 +133,11 @@ describe("AuthSessionCoordinator", () => {
     const requestRefresh = vi.fn(async () => makeSession("fresh-access-token"));
     // peer token 剩余 10 秒，低于 30 秒新鲜度门槛，采纳后会立刻再触发刷新。
     const stalePeerSession = makeSession("stale-peer-access-token", 10_000);
-    const coordination: AuthCoordination<AuthSessionResult> = {
-      ...createNoopAuthCoordination<AuthSessionResult>(),
+    const tabChannel: AuthTabChannel<AuthSessionResult> = {
+      ...createNoopAuthTabChannel<AuthSessionResult>(),
       requestPeerSession: vi.fn(async () => stalePeerSession),
     };
-    const coordinator = createCoordinator(requestRefresh, coordination);
+    const coordinator = createCoordinator(requestRefresh, tabChannel);
 
     await expect(coordinator.refresh("reactive")).resolves.toMatchObject({
       accessToken: "fresh-access-token",
@@ -149,15 +149,15 @@ describe("AuthSessionCoordinator", () => {
   });
 
   it("applies same-millisecond events from different publishers in arrival order", () => {
-    let deliver!: (event: AuthCoordinationEvent<AuthSessionResult>) => void;
-    const coordination: AuthCoordination<AuthSessionResult> = {
-      ...createNoopAuthCoordination<AuthSessionResult>(),
+    let deliver!: (event: AuthTabChannelEvent<AuthSessionResult>) => void;
+    const tabChannel: AuthTabChannel<AuthSessionResult> = {
+      ...createNoopAuthTabChannel<AuthSessionResult>(),
       subscribe(listener) {
         deliver = listener;
         return () => undefined;
       },
     };
-    const coordinator = createCoordinator(async () => makeSession("unused"), coordination);
+    const coordinator = createCoordinator(async () => makeSession("unused"), tabChannel);
     const sentAt = Date.now();
 
     deliver({

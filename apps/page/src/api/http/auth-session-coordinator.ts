@@ -1,4 +1,4 @@
-import type { AuthCoordination, AuthCoordinationEvent } from "@/api/http/auth-coordination";
+import type { AuthTabChannel, AuthTabChannelEvent } from "@/api/http/auth-tab-channel";
 import { ApiError, normalizeAxiosError } from "@/api/http/errors";
 import type { AuthErrorClassifier, AuthSession, AuthSessionStore } from "@/api/http/types";
 
@@ -10,7 +10,7 @@ interface AuthTransitionContext {
 }
 
 export interface AuthSessionCoordinatorOptions<S extends AuthSession> {
-  coordination: AuthCoordination<S>;
+  tabChannel: AuthTabChannel<S>;
   errorClassifier: AuthErrorClassifier;
   /** peer 会话至少还要“新鲜”多少毫秒才被采纳，避免拿到临过期 token 立刻再刷一轮。 */
   peerSessionMinRemainingMs?: number;
@@ -25,7 +25,7 @@ function transitionError() {
 }
 
 export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
-  private readonly coordination: AuthCoordination<S>;
+  private readonly tabChannel: AuthTabChannel<S>;
   private readonly errorClassifier: AuthErrorClassifier;
   /** 事件发布方标识：同毫秒的跨标签页事件靠它区分，避免误当重复丢弃。 */
   private readonly instanceId = crypto.randomUUID();
@@ -41,13 +41,13 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
   private readonly unsubscribe: () => void;
 
   constructor(options: AuthSessionCoordinatorOptions<S>) {
-    this.coordination = options.coordination;
+    this.tabChannel = options.tabChannel;
     this.errorClassifier = options.errorClassifier;
     this.peerSessionMinRemainingMs =
       options.peerSessionMinRemainingMs ?? DEFAULT_PEER_SESSION_MIN_REMAINING_MS;
     this.requestRefresh = options.requestRefresh;
     this.store = options.sessionStore;
-    this.unsubscribe = this.coordination.subscribe((event) => this.handleCoordinationEvent(event));
+    this.unsubscribe = this.tabChannel.subscribe((event) => this.handleTabChannelEvent(event));
   }
 
   canRefresh() {
@@ -56,7 +56,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
 
   dispose() {
     this.unsubscribe();
-    this.coordination.dispose();
+    this.tabChannel.dispose();
   }
 
   refresh(_reason: AuthRefreshReason): Promise<S> {
@@ -72,7 +72,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
     const initialAccessToken = this.store.getAccessToken();
     const initialRevision = this.store.getRevision();
 
-    this.refreshPromise = this.coordination
+    this.refreshPromise = this.tabChannel
       .runExclusive(async () => {
         if (lifecycle !== this.lifecycle || !this.canRefresh()) {
           throw transitionError();
@@ -89,7 +89,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
           return coordinatedSession;
         }
 
-        const peerSession = await this.coordination.requestPeerSession();
+        const peerSession = await this.tabChannel.requestPeerSession();
         if (lifecycle !== this.lifecycle || !this.canRefresh()) {
           throw transitionError();
         }
@@ -131,7 +131,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
     await this.waitForCurrentRefresh();
 
     try {
-      return await this.coordination.runExclusive(async () => {
+      return await this.tabChannel.runExclusive(async () => {
         if (transition.lifecycle !== this.lifecycle) {
           throw transitionError();
         }
@@ -155,7 +155,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
     let requestError: unknown;
 
     try {
-      await this.coordination.runExclusive(async () => {
+      await this.tabChannel.runExclusive(async () => {
         try {
           await requestLogout();
         } catch (error) {
@@ -199,7 +199,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
     }
   }
 
-  private handleCoordinationEvent(event: AuthCoordinationEvent<S>) {
+  private handleTabChannelEvent(event: AuthTabChannelEvent<S>) {
     // 旧事件直接丢弃；同毫秒但来自不同发布方的事件不算重复，按到达顺序应用。
     if (
       event.sentAt < this.lastEventAt ||
@@ -237,7 +237,7 @@ export class AuthSessionCoordinator<S extends AuthSession = AuthSession> {
     const sentAt = Math.max(Date.now(), this.lastEventAt + 1);
     this.lastEventAt = sentAt;
     this.lastEventSourceId = this.instanceId;
-    this.coordination.publish({ ...event, sentAt, sourceId: this.instanceId });
+    this.tabChannel.publish({ ...event, sentAt, sourceId: this.instanceId });
   }
 
   private async waitForCurrentRefresh() {

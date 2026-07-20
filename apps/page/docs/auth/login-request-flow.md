@@ -154,8 +154,8 @@ authSessionCoordinator.login
 const productionContext = createAdminHttpContext(
   {},
   import.meta.env.MODE === "test"
-    ? createNoopAuthCoordination<AuthSessionResult>()
-    : createBrowserAuthCoordination<AuthSessionResult>(() => authSessionStore.getSession(), {
+    ? createNoopAuthTabChannel<AuthSessionResult>()
+    : createBrowserAuthTabChannel<AuthSessionResult>(() => authSessionStore.getSession(), {
         channelName: "admin-backend-3-auth",
         lockName: "admin-backend-3-auth-session",
       }),
@@ -169,11 +169,11 @@ const productionContext = createAdminHttpContext(
 ```ts
 export function createAdminHttpContext(
   axiosDefaults: CreateAxiosDefaults = {},
-  coordination?: AuthCoordination<AuthSessionResult>,
+  tabChannel?: AuthTabChannel<AuthSessionResult>,
 ) {
   return createHttpClientContext<AuthSessionResult>({
     axiosDefaults: { baseURL: API_BASE_URL, ...axiosDefaults },
-    coordination,
+    tabChannel,
     errorClassifier: adminAuthErrorClassifier,
     getPreferredLanguage: getPreferredLocale,
     refreshUrl: REFRESH_SESSION_URL,
@@ -222,7 +222,7 @@ export const authSessionCoordinator = productionContext.authSessionCoordinator;
 | `requestClient`   | 登录和普通业务请求             |
 | `requestRefresh`  | 页面恢复、主动刷新、401 后刷新 |
 | `sessionStore`    | 读写当前标签页的内存 Session   |
-| `coordination`    | 多标签页锁、广播和会话索取     |
+| `tabChannel`    | 多标签页锁、广播和会话索取     |
 | `errorClassifier` | 区分过期、失效和临时服务故障   |
 | Axios 拦截器      | 请求前加 token、响应失败后恢复 |
 

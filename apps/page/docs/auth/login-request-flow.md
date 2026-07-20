@@ -222,7 +222,7 @@ export const authSessionCoordinator = productionContext.authSessionCoordinator;
 | `requestClient`   | 登录和普通业务请求             |
 | `requestRefresh`  | 页面恢复、主动刷新、401 后刷新 |
 | `sessionStore`    | 读写当前标签页的内存 Session   |
-| `tabChannel`    | 多标签页锁、广播和会话索取     |
+| `tabChannel`      | 多标签页锁、广播和会话索取     |
 | `errorClassifier` | 区分过期、失效和临时服务故障   |
 | Axios 拦截器      | 请求前加 token、响应失败后恢复 |
 

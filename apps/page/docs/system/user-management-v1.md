@@ -10,20 +10,20 @@
 
 ## 当前已实现
 
-| 能力     | 当前实现                                                                                                  |
-| -------- | --------------------------------------------------------------------------------------------------------- |
-| 列表接口 | `GET /admin/api/users/list`                                                                               |
-| 请求层   | `src/api/modules/users.ts` 通过统一 Axios 客户端请求后端                                                  |
-| 查询状态 | `src/queries/users.ts` 使用 Pinia Colada 管理 query 状态                                                  |
-| 页面入口 | `src/router/routes.ts` 中的 `/system/users`                                                               |
-| 页面骨架 | 参考 Vben 列表页，采用左侧部门树 + 右侧查询表单 + 表格工作台                                              |
-| 搜索筛选 | 支持用户名、用户 ID、状态、备注、创建时间筛选                                                             |
-| 分页     | 当前使用前端分页，后续数据量变大后切换为后端分页                                                          |
-| 列表选择 | 保留选择列和选中反馈，暂不接危险批量操作                                                                  |
-| 权限承接 | 路由 `meta.permission` 权限码判定（`system:user:view`，后端下发），详见 `docs/router/route-guard-rbac.md` |
-| CRUD     | 新增、编辑、删除已接入真实 mutation（Pinia Colada + query 失效刷新），删除带二次确认                      |
-| 角色分配 | 编辑/新增弹窗内的角色下拉，仅 `super` 可用；后端同步写入 `user_roles` 绑定                                |
-| 部门分配 | 弹窗内部门树选择（仅末级部门可选，超级管理员不归属部门，与后端校验一致）；左侧部门树来自真实接口          |
+| 能力     | 当前实现                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 列表接口 | `GET /admin/api/users/list`                                                                                                     |
+| 请求层   | `src/api/modules/users.ts` 通过统一 Axios 客户端请求后端                                                                        |
+| 查询状态 | `src/queries/users.ts` 使用 Pinia Colada 管理 query 状态                                                                        |
+| 页面入口 | `src/router/routes.ts` 中的 `/system/users`                                                                                     |
+| 页面骨架 | 参考 Vben 列表页，采用左侧部门树 + 右侧查询表单 + 表格工作台                                                                    |
+| 搜索筛选 | 支持用户名、用户 ID、状态、备注、创建时间筛选                                                                                   |
+| 分页     | 当前使用前端分页，后续数据量变大后切换为后端分页                                                                                |
+| 列表选择 | 保留选择列和选中反馈，暂不接危险批量操作                                                                                        |
+| 权限承接 | 路由 `meta.permission` 权限码判定（`system:user:view`，后端下发），详见 `docs/router/route-guard-rbac.md`                       |
+| CRUD     | 新增、编辑、删除已接入真实 mutation（Pinia Colada + query 失效刷新），删除带二次确认                                            |
+| 角色分配 | 编辑/新增弹窗内的角色多选（选项来自 `/api/roles`，含自定义角色，`super` 互斥），仅 `super` 可用；后端原子重建 `user_roles` 绑定 |
+| 部门分配 | 弹窗内部门树选择（仅末级部门可选，超级管理员不归属部门，与后端校验一致）；左侧部门树来自真实接口                                |
 
 ## 文件结构
 
@@ -38,10 +38,10 @@ src/views/system/users/UserManagementView.vue
   -> 用户管理页面组合层
 
 src/views/system/users/components/UserFormDialog.vue
-  -> 新增/编辑用户弹窗表单（含角色下拉）
+  -> 新增/编辑用户弹窗表单（含角色多选）
 
 src/views/system/users/userRoleOptions.ts
-  -> 角色下拉选项与后端 role_code（user_roles 表解析）互转
+  -> 角色多选选项构建与角色集合比较/归一（super 互斥）工具
 
 src/views/system/users/components/UserDepartmentPanel.vue
   -> 部门树面板，数据来自 GET /admin/api/departments/tree
@@ -98,14 +98,14 @@ src/views/system/users/userFilters.spec.ts
 
 ## 和完整 CRUD 的关系
 
-| 能力     | 状态                                                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 新增用户 | ✅ 已实现：mutation + `UserFormDialog` 弹窗表单                                                                         |
-| 编辑用户 | ✅ 已实现：mutation 成功后失效 `users.list` query                                                                       |
-| 删除用户 | ✅ 已实现：`ElMessageBox` 二次确认 + mutation + query 失效                                                              |
-| 角色绑定 | ✅ 已实现：用户页负责“用户 ↔ 角色”（编辑弹窗角色下拉，仅 super 可改）；“角色 ↔ 权限”在角色管理页（`/system/roles`）维护 |
-| 按钮权限 | ✅ 已实现：`v-permission` 指令按后端下发权限码控制新增/编辑/删除按钮显隐                                                |
-| 后端分页 | ⏳ 待办：接口接收 `page/pageSize/keyword/role/adminLevel`                                                               |
+| 能力     | 状态                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 新增用户 | ✅ 已实现：mutation + `UserFormDialog` 弹窗表单                                                                                       |
+| 编辑用户 | ✅ 已实现：mutation 成功后失效 `users.list` query                                                                                     |
+| 删除用户 | ✅ 已实现：`ElMessageBox` 二次确认 + mutation + query 失效                                                                            |
+| 角色绑定 | ✅ 已实现：用户页负责“用户 ↔ 角色”（编辑弹窗角色多选，一人可多角色，仅 super 可改）；“角色 ↔ 权限”在角色管理页（`/system/roles`）维护 |
+| 按钮权限 | ✅ 已实现：`v-permission` 指令按后端下发权限码控制新增/编辑/删除按钮显隐                                                              |
+| 后端分页 | ⏳ 待办：接口接收 `page/pageSize/keyword/role`                                                                                        |
 
 ## 为什么保留选择列
 

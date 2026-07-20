@@ -18,8 +18,9 @@ export const rolesQueryOptions = defineQueryOptions(() => ({
   query: getRolesApi,
 }));
 
-export function useRolesQuery() {
-  return useQuery(rolesQueryOptions);
+// enabled 支持按条件延迟拉取（如用户页仅 super 才加载角色选项）
+export function useRolesQuery(enabled?: () => boolean) {
+  return useQuery({ ...rolesQueryOptions(), ...(enabled ? { enabled } : {}) });
 }
 
 export function useCreateRoleMutation() {

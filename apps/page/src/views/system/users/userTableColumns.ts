@@ -43,7 +43,7 @@ export const userTableColumns = [
     label: "部门",
     minWidth: 190,
   },
-  { align: "center", key: "role", label: "角色", minWidth: 118, slot: "role" },
+  { align: "center", key: "role", label: "角色", minWidth: 150, slot: "role" },
   {
     align: "center",
     formatter: ({ row }) => formatDate(row.created_at),

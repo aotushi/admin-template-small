@@ -5,11 +5,7 @@ import { DatabaseWrapper } from '../models/database';
 import type { Env } from '../index';
 import { getJWTSecret } from '../middlewares/auth';
 import { logger } from '../utils/logger';
-import { isAnyAdmin, isSuperAdmin } from '../middlewares/permissions';
-import {
-  createAccessToken,
-  createUserPayload
-} from '../services/tokens';
+import { createAccessToken } from '../services/tokens';
 import {
   createRefreshSession,
   RefreshSessionError,
@@ -24,11 +20,7 @@ import {
 } from '../services/auth-cookies';
 import { isTrustedBrowserOrigin } from '../config/origins';
 import { authError, setAuthResponseNoStore } from '../services/auth-responses';
-import {
-  assignUserRole,
-  resolveUserAccess,
-  type UserAccess
-} from '../services/permissions';
+import { resolveUserAccess, type UserAccess } from '../services/permissions';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -127,8 +119,11 @@ auth.post('/login', async c => {
 
     const jwtStart = Date.now();
     const jwtSecret = getJWTSecret(c.env);
-    const userPayload = createUserPayload(user, [...userAccess.roleCodes]);
-    const access = await createAccessToken(userPayload, jwtSecret);
+    // JWT 只装身份字段；角色/权限走 serializeUser 实时下发，不进 token
+    const access = await createAccessToken(
+      { id: user.id, username: user.username },
+      jwtSecret
+    );
     const refreshSession = await createRefreshSession(c.env.DB, user.id);
     setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
     timings.jwtSign = Date.now() - jwtStart;
@@ -197,7 +192,7 @@ auth.post('/refresh', async c => {
 
     const userAccess = await resolveUserAccess(c.env.DB, user.id);
     const access = await createAccessToken(
-      createUserPayload(user, [...userAccess.roleCodes]),
+      { id: user.id, username: user.username },
       jwtSecret
     );
     setRefreshCookie(c, refreshSession.credential, refreshSession.expiresAt);
@@ -286,72 +281,6 @@ auth.post('/logout', async c => {
   }
 });
 
-// 用户注册 (仅管理员可创建新用户)
-auth.post('/register', async c => {
-  try {
-    const payload = c.get('user');
-
-    // 检查是否为管理员
-    if (!isAnyAdmin(payload)) {
-      return c.json({ error: '权限不足' }, 403);
-    }
-
-    const { username, password, role = 'user', email } = await c.req.json();
-
-    if (!username || !password) {
-      return c.json({ error: '用户名和密码不能为空' }, 400);
-    }
-
-    if (!['admin', 'user'].includes(role)) {
-      return c.json({ error: '用户角色无效' }, 400);
-    }
-
-    if (role === 'admin' && !isSuperAdmin(payload)) {
-      return c.json({ error: '只有总管理员可以授予管理员权限' }, 403);
-    }
-
-    const db = new DatabaseWrapper(c.env.DB);
-
-    // 检查用户是否已存在
-    const existingUser = await db.get(
-      'SELECT id FROM users WHERE username = ?',
-      [username]
-    );
-    if (existingUser) {
-      return c.json({ error: '用户名已存在' }, 400);
-    }
-
-    // 加密密码 - 使用异步方法避免阻塞
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 插入新用户
-    const result = await db.run(
-      'INSERT INTO users (username, password, email, created_by) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, email, payload.id]
-    );
-
-    // 写入 RBAC 角色绑定（user_roles 是角色归属唯一来源，缺失时新用户无任何权限码）
-    await assignUserRole(
-      db,
-      result.meta?.last_row_id || result.lastInsertRowid,
-      role
-    );
-
-    return c.json({
-      success: true,
-      data: {
-        id: result.meta?.last_row_id || result.lastInsertRowid,
-        username,
-        role,
-        email
-      }
-    });
-  } catch (error) {
-    logger.error('Register error', error);
-    return c.json({ error: '注册失败' }, 500);
-  }
-});
-
 // 获取当前用户信息
 auth.get('/profile', async c => {
   try {
@@ -380,34 +309,6 @@ auth.get('/profile', async c => {
   } catch (error) {
     logger.error('Profile error', error);
     return c.json({ error: '获取用户信息失败' }, 500);
-  }
-});
-
-// 获取用户列表 (仅管理员)
-auth.get('/users', async c => {
-  try {
-    const payload = c.get('user');
-
-    if (!isAnyAdmin(payload)) {
-      return c.json({ error: '权限不足' }, 403);
-    }
-
-    const db = new DatabaseWrapper(c.env.DB);
-    const users = await db.all(
-      `SELECT u.id, u.username, r.code AS role_code, u.email, u.is_active, u.created_at
-       FROM users u
-       LEFT JOIN user_roles ur ON ur.user_id = u.id
-       LEFT JOIN roles r ON r.id = ur.role_id
-       ORDER BY u.created_at DESC`
-    );
-
-    return c.json({
-      success: true,
-      data: users
-    });
-  } catch (error) {
-    logger.error('Users list error', error);
-    return c.json({ error: '获取用户列表失败' }, 500);
   }
 });
 

@@ -118,20 +118,70 @@ export function requirePermission(code: PermissionCode | readonly PermissionCode
 }
 
 /**
- * 重设用户的单一角色绑定：user_roles 是角色归属的唯一来源，
- * 用户创建或改角色后必须调用，否则该用户解析不到任何权限码。
- * 调用方需先校验 roleCode 在 roles 表中存在，否则用户会落成无角色。
+ * 校验角色码数组：去重后全部在 roles 表中存在且启用时返回角色行，
+ * 任一缺失或停用返回 null（调用方据此拒绝请求，避免用户落成无角色/绑到停用角色）。
  */
-export async function assignUserRole(
-  db: { run(query: string, params?: any[]): Promise<any> },
-  userId: number,
-  roleCode: string
-): Promise<void> {
-  await db.run('DELETE FROM user_roles WHERE user_id = ?', [userId]);
-  await db.run(
-    'INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE code = ?',
-    [userId, roleCode]
+export async function resolveActiveRoles(
+  db: { all(query: string, params?: any[]): Promise<any[]> },
+  roleCodes: readonly string[]
+): Promise<null | Array<{ code: string; id: number }>> {
+  const codes = [...new Set(roleCodes)];
+  if (
+    codes.length === 0 ||
+    codes.some(code => typeof code !== 'string' || !code.trim())
+  ) {
+    return null;
+  }
+
+  const placeholders = codes.map(() => '?').join(', ');
+  const rows = await db.all(
+    `SELECT id, code FROM roles WHERE status = 1 AND code IN (${placeholders})`,
+    codes
   );
+  return rows.length === codes.length
+    ? (rows as Array<{ code: string; id: number }>)
+    : null;
+}
+
+/**
+ * 原子重设用户的角色绑定：user_roles 是角色归属的唯一来源，
+ * 用户创建或改角色后必须调用，否则该用户解析不到任何权限码。
+ * D1 无交互式事务，用 batch 保证"删旧+插新"同生共死，不会留下无角色的中间态。
+ * 调用方需先用 resolveActiveRoles 校验角色码并换取 roleIds。
+ */
+export async function assignUserRoles(
+  d1: D1Database,
+  userId: number,
+  roleIds: readonly number[]
+): Promise<void> {
+  await d1.batch([
+    d1.prepare('DELETE FROM user_roles WHERE user_id = ?').bind(userId),
+    ...roleIds.map(roleId =>
+      d1
+        .prepare('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)')
+        .bind(userId, roleId)
+    )
+  ]);
+}
+
+/**
+ * 除指定用户外，仍处于启用状态且绑定 super 的用户数。
+ * 降级/删除 super 用户前的防线：结果为 0 说明目标是最后一个可用的总管理员。
+ * 只数 is_active=1 的用户——被停用的 super 登录即 401，救不了场。
+ */
+export async function countOtherActiveSuperAdmins(
+  db: { get(query: string, params?: any[]): Promise<any> },
+  excludeUserId: number
+): Promise<number> {
+  const row = await db.get(
+    `SELECT COUNT(*) AS count
+     FROM user_roles ur
+     JOIN roles r ON r.id = ur.role_id
+     JOIN users u ON u.id = ur.user_id
+     WHERE r.code = 'super' AND u.is_active = 1 AND u.id != ?`,
+    [excludeUserId]
+  );
+  return Number(row?.count ?? 0);
 }
 
 export interface ScopeCondition {

@@ -59,13 +59,13 @@ Super 登录
 
 当前项目把访问控制拆成五个连续问题：
 
-| 问题                             | 当前负责位置                             |
-| -------------------------------- | ---------------------------------------- |
-| 你是谁？                         | 登录、Access Token、`currentUser`        |
+| 问题                             | 当前负责位置                                       |
+| -------------------------------- | -------------------------------------------------- |
+| 你是谁？                         | 登录、Access Token、`currentUser`                  |
 | 你属于什么基础身份？             | `user.roles` 角色码（`user_roles` 表实时解析下发） |
-| 你能做什么？                     | `user.permissions` 权限码                |
-| 你能对哪些数据做？               | 角色的 `data_scope`                      |
-| 即使有权限，这次操作本身合法吗？ | 后端业务规则，例如不能删除自己           |
+| 你能做什么？                     | `user.permissions` 权限码                          |
+| 你能对哪些数据做？               | 角色的 `data_scope`                                |
+| 即使有权限，这次操作本身合法吗？ | 后端业务规则，例如不能删除自己                     |
 
 可以压缩成：
 
@@ -90,24 +90,24 @@ RBAC 不是某一个 `if`，而是这几层检查的组合。
 
 ## 3. 文件地图
 
-| 文件                                                                                                                                           | 在 RBAC 流程中的职责                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| [`contracts/admin-api/src/permissions.ts`](../../../../contracts/admin-api/src/permissions.ts)                                                 | 前后端共享权限码、角色码和数据范围                          |
-| [`services/api-hono/src/services/permissions.ts`](../../../../services/api-hono/src/services/permissions.ts)                                   | 从 D1 解析权限、检查权限、生成数据范围条件                  |
-| [`services/api-hono/src/routes/auth.ts`](../../../../services/api-hono/src/routes/auth.ts)                                                     | 登录、refresh、profile 时下发权限快照                       |
-| [`services/api-hono/src/middlewares/auth.ts`](../../../../services/api-hono/src/middlewares/auth.ts)                                           | 验证 Access Token，并确认账号仍然有效                       |
-| [`src/api/types.ts`](../../src/api/types.ts)                                                                                                   | 定义 `CurrentUser.permissions`                              |
-| [`src/api/session.ts`](../../src/api/session.ts)                                                                                               | 保存 Access Token 和用户快照                                |
-| [`src/stores/auth.ts`](../../src/stores/auth.ts)                                                                                               | 提供响应式 `currentUser`、`isSuper` 和 `isAuthenticated`    |
-| [`src/auth/permissions.ts`](../../src/auth/permissions.ts)                                                                                     | 判断用户是否拥有某个权限码                                  |
-| [`src/router/routes.ts`](../../src/router/routes.ts)                                                                                           | 声明静态路由需要的权限码                                    |
-| [`src/router/access.ts`](../../src/router/access.ts)                                                                                           | 路由守卫和菜单共用的访问判断                                |
-| [`src/router/guards.ts`](../../src/router/guards.ts)                                                                                           | 导航前检查登录和整条匹配路由                                |
-| [`src/router/menu.ts`](../../src/router/menu.ts)                                                                                               | 从静态路由过滤生成侧边栏数据                                |
-| [`src/layouts/MainLayout.vue`](../../src/layouts/MainLayout.vue)                                                                               | 响应当前用户变化并把菜单交给侧边栏                          |
-| [`src/directives/permission.ts`](../../src/directives/permission.ts)                                                                           | 页面挂载时移除无权限按钮                                    |
-| [`services/api-hono/src/routes/users.ts`](../../../../services/api-hono/src/routes/users.ts)                                                   | 用户接口的权限、数据范围和业务保护                          |
-| [`services/api-hono/migrations/021_menus_replace_permissions.sql`](../../../../services/api-hono/migrations/021_menus_replace_permissions.sql) | 当前菜单树、角色绑定和默认权限种子                          |
+| 文件                                                                                                                                           | 在 RBAC 流程中的职责                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [`contracts/admin-api/src/permissions.ts`](../../../../contracts/admin-api/src/permissions.ts)                                                 | 前后端共享权限码、角色码和数据范围                       |
+| [`services/api-hono/src/services/permissions.ts`](../../../../services/api-hono/src/services/permissions.ts)                                   | 从 D1 解析权限、检查权限、生成数据范围条件               |
+| [`services/api-hono/src/routes/auth.ts`](../../../../services/api-hono/src/routes/auth.ts)                                                     | 登录、refresh、profile 时下发权限快照                    |
+| [`services/api-hono/src/middlewares/auth.ts`](../../../../services/api-hono/src/middlewares/auth.ts)                                           | 验证 Access Token，并确认账号仍然有效                    |
+| [`src/api/types.ts`](../../src/api/types.ts)                                                                                                   | 定义 `CurrentUser.permissions`                           |
+| [`src/api/session.ts`](../../src/api/session.ts)                                                                                               | 保存 Access Token 和用户快照                             |
+| [`src/stores/auth.ts`](../../src/stores/auth.ts)                                                                                               | 提供响应式 `currentUser`、`isSuper` 和 `isAuthenticated` |
+| [`src/auth/permissions.ts`](../../src/auth/permissions.ts)                                                                                     | 判断用户是否拥有某个权限码                               |
+| [`src/router/routes.ts`](../../src/router/routes.ts)                                                                                           | 声明静态路由需要的权限码                                 |
+| [`src/router/access.ts`](../../src/router/access.ts)                                                                                           | 路由守卫和菜单共用的访问判断                             |
+| [`src/router/guards.ts`](../../src/router/guards.ts)                                                                                           | 导航前检查登录和整条匹配路由                             |
+| [`src/router/menu.ts`](../../src/router/menu.ts)                                                                                               | 从静态路由过滤生成侧边栏数据                             |
+| [`src/layouts/MainLayout.vue`](../../src/layouts/MainLayout.vue)                                                                               | 响应当前用户变化并把菜单交给侧边栏                       |
+| [`src/directives/permission.ts`](../../src/directives/permission.ts)                                                                           | 页面挂载时移除无权限按钮                                 |
+| [`services/api-hono/src/routes/users.ts`](../../../../services/api-hono/src/routes/users.ts)                                                   | 用户接口的权限、数据范围和业务保护                       |
+| [`services/api-hono/migrations/021_menus_replace_permissions.sql`](../../../../services/api-hono/migrations/021_menus_replace_permissions.sql) | 当前菜单树、角色绑定和默认权限种子                       |
 
 ## 4. 数据模型：谁把权限交给了谁
 
@@ -136,13 +136,13 @@ users
 
 这里有五张关键表：
 
-| 表           | 作用                                                   |
-| ------------ | ------------------------------------------------------ |
+| 表           | 作用                                                        |
+| ------------ | ----------------------------------------------------------- |
 | `users`      | 账号本身和所属部门（不存角色字段，角色归属见 `user_roles`） |
-| `roles`      | 角色名称、状态和数据范围                               |
-| `user_roles` | 用户与角色的关联                                       |
-| `menus`      | 目录、页面、按钮以及 `auth_code`                       |
-| `role_menus` | 角色勾选了哪些菜单树节点                               |
+| `roles`      | 角色名称、状态和数据范围                                    |
+| `user_roles` | 用户与角色的关联                                            |
+| `menus`      | 目录、页面、按钮以及 `auth_code`                            |
+| `role_menus` | 角色勾选了哪些菜单树节点                                    |
 
 部门表 `departments` 不提供功能权限，但会参与 `dept` 数据范围计算。
 
@@ -301,12 +301,11 @@ dataScope = self
 
 ## 7. 权限为什么不放进 Access Token
 
-Access Token 只携带识别用户所需的基础字段，例如：
+Access Token 只携带识别用户所需的基础字段：
 
 ```text
 id
 username
-created_by
 ```
 
 角色码不依赖 token：`authMiddleware` 每次请求都从 `user_roles` 表实时解析。
@@ -1029,25 +1028,9 @@ component=views/system/ExampleView.vue
 
 ## 23. 当前模型尚未闭环的地方
 
-### 23.1 自定义角色暂时不能从用户表单分配
+### 23.1 自定义角色分配（已闭环）
 
-数据库支持：
-
-```text
-创建自定义角色
-角色绑定任意菜单节点
-user_roles 理论上支持一人多角色
-```
-
-但用户表单目前只提供：
-
-```text
-super
-admin
-user
-```
-
-保存用户时会重建为一个内置角色绑定。因此“自定义角色可维护、可配权限”已经实现，“通过页面把用户分配给自定义角色”尚未闭环。
+用户表单的角色选项从 `/api/roles` 动态加载（仅总管理员会拉取），多选提交 `roles: string[]`，自定义角色可直接从页面分配，一人可绑定多个角色。`super` 不可与其他角色叠加（前后端同规则校验）。详见 ADR-0002。
 
 ### 23.2 `/system` 父路由的角色限制（已闭环）
 
@@ -1058,7 +1041,7 @@ user
 系统管理四个主要 CRUD 已使用 `requirePermission`，但部分接口仍使用角色码判断：
 
 ```text
-isAnyAdmin / isSuperAdmin（基于 payload.role_codes，每请求从 user_roles 实时解析）
+isAnyAdmin / isSuperAdmin（基于每请求从 user_roles 实时解析的 role_codes，不来自 token）
 ```
 
 因此后端目前是权限码 RBAC 与角色码判断并存，不是所有接口都已经迁移到纯权限码。

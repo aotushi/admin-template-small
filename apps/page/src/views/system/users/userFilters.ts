@@ -1,4 +1,4 @@
-import type { AdminUserListItem } from "@/api/modules/users";
+import type { AdminUserListItem, AdminUserRoleItem } from "@/api/modules/users";
 import type { UserFilters, UserPagination } from "@/views/system/users/types";
 
 export function createDefaultUserFilters(): UserFilters {
@@ -48,29 +48,21 @@ export function getUserStatusLabel(user: AdminUserListItem) {
   return getUserStatus(user) === "enabled" ? "启用" : "停用";
 }
 
-export function getUserRoleLabel(user: AdminUserListItem) {
-  // 自定义角色直接用 roles.name；内置三角色兜底中文名
-  if (user.role_name) {
-    return user.role_name;
+/** 列表角色标签数据源：多角色逐个展示，无绑定兜底"普通用户" */
+export function getUserRoleItems(user: AdminUserListItem): AdminUserRoleItem[] {
+  if (user.roles && user.roles.length > 0) {
+    return user.roles;
   }
 
-  if (user.role_code === "super") {
-    return "超级管理员";
-  }
-
-  if (user.role_code === "admin") {
-    return "管理员";
-  }
-
-  return "普通用户";
+  return [{ code: "user", name: "普通用户" }];
 }
 
-export function getUserRoleTagType(user: AdminUserListItem): "danger" | "info" | "warning" {
-  if (user.role_code === "super") {
+export function getRoleTagType(roleCode: string): "danger" | "info" | "warning" {
+  if (roleCode === "super") {
     return "danger";
   }
 
-  return user.role_code === "admin" ? "warning" : "info";
+  return roleCode === "admin" ? "warning" : "info";
 }
 
 function matchesUsername(user: AdminUserListItem, username: string) {
@@ -116,12 +108,14 @@ function matchesRole(user: AdminUserListItem, role: UserFilters["role"]) {
     return true;
   }
 
+  const codes = user.role_codes ?? [];
+
   if (role === "super" || role === "admin") {
-    return user.role_code === role;
+    return codes.includes(role);
   }
 
-  // user 档兜住自定义角色码与无绑定
-  return user.role_code !== "super" && user.role_code !== "admin";
+  // user 档兜住纯自定义角色与无绑定（含 admin/super 的归上面两档）
+  return !codes.includes("super") && !codes.includes("admin");
 }
 
 function matchesDepartment(user: AdminUserListItem, allowedDepartmentIds?: ReadonlySet<string>) {

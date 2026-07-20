@@ -1,5 +1,11 @@
 import { requestClient } from "@/api/request";
 
+/** 用户绑定的单个角色（roles.code / roles.name） */
+export interface AdminUserRoleItem {
+  code: string;
+  name: string;
+}
+
 export interface AdminUserListItem {
   created_at?: null | string;
   created_by?: null | number | string;
@@ -11,10 +17,10 @@ export interface AdminUserListItem {
   id: number | string;
   is_system?: boolean | number;
   is_active?: boolean | number;
-  /** 角色码（roles.code，经 user_roles 关联），无绑定时为 null */
-  role_code?: null | string;
-  /** 角色显示名（roles.name） */
-  role_name?: null | string;
+  /** 角色码数组（与 roles 同序），无绑定时为空数组 */
+  role_codes?: string[];
+  /** 用户绑定的角色（多对多，经 user_roles 关联） */
+  roles?: AdminUserRoleItem[];
   username: string;
 }
 
@@ -28,12 +34,12 @@ export interface AdminDepartmentTreeItem {
   user_count: number;
 }
 
-/** role 为角色码（roles.code），后端按 roles 表校验；表单选项映射见 userRoleOptions.ts */
+/** roles 为角色码数组（roles.code），后端按 roles 表校验；选项构建见 userRoleOptions.ts */
 export interface CreateUserPayload {
   department_id?: null | number;
   email?: string;
   password: string;
-  role?: string;
+  roles?: string[];
   username: string;
 }
 
@@ -42,7 +48,7 @@ export interface UpdateUserPayload {
   email?: string;
   is_active?: boolean;
   password?: string;
-  role?: string;
+  roles?: string[];
 }
 
 export function getUsersApi() {

@@ -3,9 +3,11 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 
 import {
-  assignUserRole,
+  assignUserRoles,
   buildUsersScopeCondition,
+  countOtherActiveSuperAdmins,
   requirePermission,
+  resolveActiveRoles,
   resolveUserAccess,
   type UserAccess
 } from './permissions';
@@ -133,22 +135,106 @@ describe('requirePermission', () => {
   });
 });
 
-describe('assignUserRole', () => {
-  it('先清空旧绑定，再按角色码插入新绑定', async () => {
-    const calls: Array<{ params: any[]; query: string }> = [];
+describe('resolveActiveRoles', () => {
+  function createRolesDatabase(rows: Array<{ code: string; id: number }>) {
+    const queries: Array<{ params: any[]; query: string }> = [];
     const db = {
-      async run(query: string, params: any[] = []) {
-        calls.push({ params, query });
+      async all(query: string, params: any[] = []) {
+        queries.push({ params, query });
+        return rows;
+      }
+    };
+    return { db, queries };
+  }
+
+  it('全部命中启用角色时返回 id + code 列表（自动去重）', async () => {
+    const { db, queries } = createRolesDatabase([
+      { code: 'admin', id: 2 },
+      { code: 'user', id: 3 }
+    ]);
+
+    const roles = await resolveActiveRoles(db, ['admin', 'user', 'admin']);
+
+    expect(roles).toEqual([
+      { code: 'admin', id: 2 },
+      { code: 'user', id: 3 }
+    ]);
+    expect(queries[0].params).toEqual(['admin', 'user']);
+    expect(queries[0].query).toContain('status = 1');
+  });
+
+  it('空数组或含空白角色码时返回 null', async () => {
+    const { db } = createRolesDatabase([]);
+
+    expect(await resolveActiveRoles(db, [])).toBeNull();
+    expect(await resolveActiveRoles(db, ['admin', '  '])).toBeNull();
+  });
+
+  it('任一角色码不存在或已停用时返回 null', async () => {
+    const { db } = createRolesDatabase([{ code: 'admin', id: 2 }]);
+
+    expect(await resolveActiveRoles(db, ['admin', 'ghost'])).toBeNull();
+  });
+});
+
+describe('assignUserRoles', () => {
+  it('单个 batch 内先清空旧绑定，再逐个插入新绑定', async () => {
+    const statements: Array<{ params: any[]; query: string }> = [];
+    let batchCount = 0;
+    const d1 = {
+      prepare(query: string) {
+        return {
+          bind(...params: any[]) {
+            return { params, query };
+          }
+        };
+      },
+      async batch(items: Array<{ params: any[]; query: string }>) {
+        batchCount += 1;
+        statements.push(...items);
+        return [];
+      }
+    } as unknown as D1Database;
+
+    await assignUserRoles(d1, 42, [2, 3]);
+
+    expect(batchCount).toBe(1);
+    expect(statements).toHaveLength(3);
+    expect(statements[0].query).toBe('DELETE FROM user_roles WHERE user_id = ?');
+    expect(statements[0].params).toEqual([42]);
+    expect(statements[1].query).toContain('INSERT INTO user_roles');
+    expect(statements[1].params).toEqual([42, 2]);
+    expect(statements[2].params).toEqual([42, 3]);
+  });
+});
+
+describe('countOtherActiveSuperAdmins', () => {
+  it('排除目标用户并只统计启用账号的 super 绑定', async () => {
+    const queries: Array<{ params: any[]; query: string }> = [];
+    const db = {
+      async get(query: string, params: any[] = []) {
+        queries.push({ params, query });
+        return { count: 2 };
       }
     };
 
-    await assignUserRole(db, 42, 'super');
+    const count = await countOtherActiveSuperAdmins(db, 42);
 
-    expect(calls).toHaveLength(2);
-    expect(calls[0].query).toBe('DELETE FROM user_roles WHERE user_id = ?');
-    expect(calls[0].params).toEqual([42]);
-    expect(calls[1].query).toContain('INSERT INTO user_roles');
-    expect(calls[1].params).toEqual([42, 'super']);
+    expect(count).toBe(2);
+    expect(queries[0].params).toEqual([42]);
+    expect(queries[0].query).toContain("r.code = 'super'");
+    expect(queries[0].query).toContain('u.is_active = 1');
+    expect(queries[0].query).toContain('u.id != ?');
+  });
+
+  it('查询无结果时兜底为 0', async () => {
+    const db = {
+      async get() {
+        return undefined;
+      }
+    };
+
+    expect(await countOtherActiveSuperAdmins(db, 1)).toBe(0);
   });
 });
 

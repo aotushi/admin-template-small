@@ -65,9 +65,7 @@ export interface BrowserAuthTabChannelOptions {
   peerResponseTimeoutMs?: number;
 }
 
-export function createNoopAuthTabChannel<
-  S extends AuthSession = AuthSession,
->(): AuthTabChannel<S> {
+export function createNoopAuthTabChannel<S extends AuthSession = AuthSession>(): AuthTabChannel<S> {
   return {
     dispose() {},
     publish() {},

@@ -96,7 +96,7 @@ async function request(
   app.route('/', rolesRoutes);
 
   const { accessToken } = await createAccessToken(
-    { id: 1, role_codes: ['super'], username: 'vben' },
+    { id: 1, username: 'vben' },
     JWT_SECRET
   );
 

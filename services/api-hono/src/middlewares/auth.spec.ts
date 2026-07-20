@@ -61,7 +61,6 @@ async function createToken() {
     await createAccessToken(
       {
         id: 1,
-        role_codes: ['admin'],
         username: 'vben'
       },
       JWT_SECRET

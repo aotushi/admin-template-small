@@ -62,6 +62,10 @@ _Avoid_: 与"标签页通道"混用
 角色的稳定标识（如 `super`/`admin`/`user`）。用户与角色的归属唯一存于 `user_roles` 表，`users` 表不再有角色列（迁移 022）。
 _Avoid_: role 字段、admin_level
 
+**多角色（multi-role）**:
+一个用户可绑定多个角色（含自定义角色），全链路多对多（ADR-0002）。权限码取并集，数据范围取最宽（`all` > `dept` > `self`）；`super` 不可与其他角色叠加（前后端同规则校验）。
+_Avoid_: 单角色、主角色
+
 **权限码（permission code）**:
 菜单节点上的 `auth_code`（如 `system:user:view`），前端显隐的唯一判定依据。每次请求由后端实时解析（user → user_roles → roles → role_menus → menus），不进 JWT。
 _Avoid_: permissions 表（已被菜单表取代）

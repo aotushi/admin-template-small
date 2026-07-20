@@ -43,11 +43,13 @@ pnpm --dir services/api-hono dev
 
 ## 本地演示账号
 
-| 展示名称 | 用户名  | 密码     | 角色  | 管理员层级 |
-| -------- | ------- | -------- | ----- | ---------- |
-| Super    | `vben`  | `123456` | admin | super      |
-| Admin    | `admin` | `123456` | admin | sub        |
-| User     | `jack`  | `123456` | user  | -          |
+| 展示名称 | 用户名  | 密码     | 角色（user_roles 绑定） |
+| -------- | ------- | -------- | ----------------------- |
+| Super    | `vben`  | `123456` | super                   |
+| Admin    | `admin` | `123456` | admin                   |
+| User     | `jack`  | `123456` | user                    |
+
+角色归属唯一存于 `user_roles` 表（一人可多角色），无"管理员层级"字段，详见 `docs/adr/0002-true-multi-role-rbac.md`。
 
 ## 生产部署前置条件
 

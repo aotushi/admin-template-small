@@ -3,7 +3,16 @@ import type { UserPayload } from '../middlewares/permissions';
 
 export type AuthTokenType = 'access';
 
-export interface AuthTokenPayload extends UserPayload {
+/**
+ * JWT 只装身份字段：角色/权限每请求由 authMiddleware 从 D1 实时解析，
+ * 放进 token 也只是签发瞬间的快照，改角色后会变成误导性的死数据。
+ */
+export interface TokenSubject {
+  id: number;
+  username: string;
+}
+
+export interface AuthTokenPayload extends TokenSubject {
   [key: string]: unknown;
   aud: string;
   exp: number;
@@ -50,30 +59,31 @@ export function createUserPayload(
 }
 
 function createTokenPayload(
-  user: UserPayload,
+  subject: TokenSubject,
   tokenType: AuthTokenType,
   ttlSeconds: number
 ): AuthTokenPayload {
   const iat = nowInSeconds();
 
   return {
-    ...user,
+    id: subject.id,
+    username: subject.username,
     aud: JWT_AUDIENCE,
     exp: iat + ttlSeconds,
     iat,
     iss: JWT_ISSUER,
     jti: crypto.randomUUID(),
-    sub: String(user.id),
+    sub: String(subject.id),
     tokenType
   };
 }
 
 export async function createAccessToken(
-  user: UserPayload,
+  subject: TokenSubject,
   secret: string
 ): Promise<AccessTokenResult> {
   const accessPayload = createTokenPayload(
-    user,
+    subject,
     'access',
     ACCESS_TOKEN_TTL_SECONDS
   );

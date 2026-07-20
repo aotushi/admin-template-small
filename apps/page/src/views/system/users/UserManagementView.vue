@@ -16,18 +16,20 @@ import {
   useUpdateUserMutation,
   useUsersListQuery,
 } from "@/queries/users";
+
+import { useRolesQuery } from "@/queries/roles";
 import { useAuthStore } from "@/stores/auth";
 import UserDepartmentPanel from "./components/UserDepartmentPanel.vue";
 import UserFormDialog, { type UserFormValue } from "./components/UserFormDialog.vue";
 import UserSearchPanel from "./components/UserSearchPanel.vue";
-import { toRoleOption } from "./userRoleOptions";
+import { buildRoleOptions, getUserRoleCodes, isSameRoleSelection } from "./userRoleOptions";
 import type { UserFilters } from "./types";
 import { ALL_DEPARTMENTS_KEY, getSelectedDepartmentIds } from "./departmentTree";
 import {
   createDefaultUserFilters,
   filterUsers,
-  getUserRoleLabel,
-  getUserRoleTagType,
+  getRoleTagType,
+  getUserRoleItems,
   getUserStatusLabel,
   paginateUsers,
 } from "./userFilters";
@@ -126,6 +128,9 @@ const dialogMode = shallowRef<"create" | "edit">("create");
 const editingUser = shallowRef<AdminUserListItem | null>(null);
 // 角色分配是总管理员专属规则（后端同样校验），与权限码判定互补
 const canAssignRole = computed(() => authStore.isSuper);
+// 角色选项动态加载（/api/roles 需 system:role:view，仅总管理员拉取）
+const rolesQuery = useRolesQuery(() => canAssignRole.value);
+const roleOptions = computed(() => buildRoleOptions(rolesQuery.data.value?.roles ?? []));
 // 有更新权限时状态列显示开关，否则只读 Tag
 const canUpdateUser = computed(() =>
   hasPermission(authStore.currentUser, PERMISSION_CODES.systemUserUpdate),
@@ -154,7 +159,7 @@ async function handleDialogSubmit(value: UserFormValue) {
       const payload: CreateUserPayload = {
         department_id: value.departmentId,
         password: value.password,
-        role: value.roleOption,
+        roles: value.roleCodes,
         username: value.username,
       };
       if (value.email) {
@@ -170,9 +175,12 @@ async function handleDialogSubmit(value: UserFormValue) {
       if (value.password) {
         payload.password = value.password;
       }
-      // 只有总管理员且角色确有变化时才提交角色字段（后端拒绝非 super 的角色变更）
-      if (canAssignRole.value && value.roleOption !== toRoleOption(editingUser.value)) {
-        payload.role = value.roleOption;
+      // 只有总管理员且角色集确有变化时才提交角色字段（后端拒绝非 super 的角色变更）
+      if (
+        canAssignRole.value &&
+        !isSameRoleSelection(value.roleCodes, getUserRoleCodes(editingUser.value))
+      ) {
+        payload.roles = value.roleCodes;
       }
       await updateUserMutation.mutateAsync({ payload, userId: editingUser.value.id });
       ElMessage.success("用户更新成功");
@@ -322,9 +330,16 @@ async function handleDelete(user: AdminUserListItem) {
         </template>
 
         <template #cell-role="{ row }: { row: AdminUserListItem }">
-          <ElTag :type="getUserRoleTagType(row)" effect="light">
-            {{ getUserRoleLabel(row) }}
-          </ElTag>
+          <span class="user-management-page__roles">
+            <ElTag
+              v-for="role in getUserRoleItems(row)"
+              :key="role.code"
+              effect="light"
+              :type="getRoleTagType(role.code)"
+            >
+              {{ role.name }}
+            </ElTag>
+          </span>
         </template>
 
         <template #cell-actions="{ row }: { row: AdminUserListItem }">
@@ -343,6 +358,7 @@ async function handleDelete(user: AdminUserListItem) {
       :can-assign-role="canAssignRole"
       :departments="assignableDepartments"
       :mode="dialogMode"
+      :role-options="roleOptions"
       :submitting="dialogSubmitting"
       :user="editingUser"
       @submit="handleDialogSubmit"
@@ -374,6 +390,13 @@ async function handleDelete(user: AdminUserListItem) {
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+.user-management-page__roles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
 }
 
 .user-management-page :deep(.el-input__wrapper),

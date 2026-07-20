@@ -12,8 +12,8 @@ const users: AdminUserListItem[] = [
     department_parent_name: null,
     email: "vben@example.com",
     id: 1,
-    role_code: "super",
-    role_name: "总管理员",
+    role_codes: ["super"],
+    roles: [{ code: "super", name: "总管理员" }],
     username: "vben",
   },
   {
@@ -25,8 +25,11 @@ const users: AdminUserListItem[] = [
     email: "admin@example.com",
     id: 2,
     is_active: 0,
-    role_code: "admin",
-    role_name: "子管理员",
+    role_codes: ["admin", "role_9"],
+    roles: [
+      { code: "admin", name: "子管理员" },
+      { code: "role_9", name: "审计员" },
+    ],
     username: "admin",
   },
   {
@@ -37,8 +40,8 @@ const users: AdminUserListItem[] = [
     department_parent_name: "销售部",
     email: "jack@example.com",
     id: 3,
-    role_code: "user",
-    role_name: "普通用户",
+    role_codes: ["user"],
+    roles: [{ code: "user", name: "普通用户" }],
     username: "jack",
   },
 ];

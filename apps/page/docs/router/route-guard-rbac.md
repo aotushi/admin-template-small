@@ -4,7 +4,7 @@
 
 `apps/page` 采用"静态路由 + `meta.permission` 权限码判定 + 守卫/菜单同源过滤"的方式实现后台管理路由权限。
 
-这个方案属于传统后台管理中常见的 RBAC 前端落地方式：页面路由通过 `meta` 声明需要的权限码或角色，路由守卫负责拦截，菜单根据同一套路由权限过滤。
+这个方案属于传统后台管理中常见的 RBAC 前端落地方式：页面路由通过 `meta` 声明需要的权限码，路由守卫负责拦截，菜单根据同一套路由权限过滤。
 
 它的重点不是"前端决定最终权限"，而是"前端表达入口权限和交互权限"。真正的数据访问、接口写入、数据范围控制仍然必须由后端校验（`requirePermission` 中间件）。前端任何路由方案都拦不住直接 curl 接口，所以前端权限本质上是 UX 层。
 
@@ -21,18 +21,18 @@
 
 ## 2. 源码位置
 
-| 文件                           | 作用                                                     |
-| ------------------------------ | -------------------------------------------------------- |
-| `src/router/routes.ts`         | 声明登录页、业务页、错误页、菜单标题、图标、角色、权限码 |
-| `src/router/types.ts`          | 扩展 Vue Router 的 `RouteMeta` 类型                      |
-| `src/router/guards.ts`         | 注册全局路由守卫                                         |
-| `src/router/access.ts`         | 判断用户是否能访问当前路由（守卫与菜单共用）             |
-| `src/router/menu.ts`           | 根据路由和用户权限生成侧边栏菜单数据                     |
-| `src/router/redirect.ts`       | 登录后跳转目标解析（防开放重定向）                       |
-| `src/auth/permissions.ts`      | 权限码判定（`hasPermission`）                            |
-| `src/directives/permission.ts` | `v-permission` 按钮级权限指令                            |
-| `src/stores/auth.ts`           | 保存当前 token、用户快照（含 `permissions` 权限码）      |
-| `src/views/error/*.vue`        | 403 / 404 / 500 错误页                                   |
+| 文件                           | 作用                                                |
+| ------------------------------ | --------------------------------------------------- |
+| `src/router/routes.ts`         | 声明登录页、业务页、错误页、菜单标题、图标、权限码  |
+| `src/router/types.ts`          | 扩展 Vue Router 的 `RouteMeta` 类型                 |
+| `src/router/guards.ts`         | 注册全局路由守卫                                    |
+| `src/router/access.ts`         | 判断用户是否能访问当前路由（守卫与菜单共用）        |
+| `src/router/menu.ts`           | 根据路由和用户权限生成侧边栏菜单数据                |
+| `src/router/redirect.ts`       | 登录后跳转目标解析（防开放重定向）                  |
+| `src/auth/permissions.ts`      | 权限码判定（`hasPermission`）                       |
+| `src/directives/permission.ts` | `v-permission` 按钮级权限指令                       |
+| `src/stores/auth.ts`           | 保存当前 token、用户快照（含 `permissions` 权限码） |
+| `src/views/error/*.vue`        | 403 / 404 / 500 错误页                              |
 
 权限码常量来自 `contracts/admin-api/src/permissions.ts`，前后端共享同一份，避免字符串拼错。
 
@@ -93,7 +93,10 @@ permissions   # 权限码列表，按 user_roles -> roles -> role_menus -> menus
   -> 若内存中没有 access token，先通过 HttpOnly Cookie 调用刷新接口恢复会话（await）
   -> 已登录访问登录页：跳转到 redirect 或 /dashboard
   -> 未登录访问受保护页面：跳转 /login?redirect=目标地址
-  -> 已登录但权限不满足：跳转 /403?from=目标地址
+  -> 已登录但权限不满足：
+       若是分组 redirect 的固定落点（to.redirectedFrom 存在，如仅有角色权限的用户进 /system 落到 users）
+         -> 改投分组内第一个可访问子页（resolveFirstAccessiblePath，与菜单同按 order 排序）
+       否则跳转 /403?from=目标地址
   -> 访问 / ：跳转 /dashboard
   -> 其它情况放行
 ```
@@ -269,7 +272,7 @@ routes.ts（手写路由表）
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------- |
 | 403 暴露路径存在性    | 无权限用户直达 `/system/roles` 得到 403 而非 404，等于告知该路径存在。内部后台无所谓；安全敏感场景需要 7.3 的 404 语义 | 低       |
 | ~~权限双轨并存~~      | `meta.roles` 已随迁移 022 删除，路由判定只剩 `permission` 单轨，见第 9 节                                              | 已消除   |
-| routes.ts 单文件      | 当前约 400 行可接受；页面继续增长应拆成 `routes/modules/*`                                                             | 低       |
+| routes.ts 单文件      | 当前约 200 行可接受；页面继续增长应拆成 `routes/modules/*`                                                             | 低       |
 | bundle 含全部路由声明 | 懒加载下泄露的只是路径字符串，页面代码本身不会提前加载                                                                 | 低       |
 
 ### 8.3 结论

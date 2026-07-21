@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { RouteRecordRaw } from "vue-router";
 
 import App from "./App.vue";
-import router, { routes } from "./router";
+import router from "./router";
+import { routes } from "./router/routes";
 import { quickAccounts } from "./views/login/loginAccounts";
 
 function hasRoutePath(routeRecords: readonly RouteRecordRaw[], path: string): boolean {

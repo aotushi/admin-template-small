@@ -10,11 +10,3 @@ export function hasPermission(user: CurrentUser | null, code?: string): boolean 
 
   return user?.permissions?.includes(code) ?? false;
 }
-
-export function hasAnyPermission(user: CurrentUser | null, codes?: readonly string[]): boolean {
-  if (!codes?.length) {
-    return true;
-  }
-
-  return codes.some((code) => hasPermission(user, code));
-}

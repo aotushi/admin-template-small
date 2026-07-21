@@ -1,7 +1,7 @@
 import type { Router } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
-import { canAccessMatchedRoute } from "@/router/access";
+import { canAccessMatchedRoute, resolveFirstAccessiblePath } from "@/router/access";
 import { resolvePostLoginRedirect } from "@/router/redirect";
 
 const LOGIN_ROUTE_NAME = "Login";
@@ -40,6 +40,20 @@ export function setupRouterGuards(router: Router) {
     if (authStore.isAuthenticated && !canAccessMatchedRoute(to, authStore.currentUser)) {
       if (to.name === FORBIDDEN_ROUTE_NAME) {
         return true;
+      }
+
+      // 分组 redirect 的固定落点无权时（如仅有角色权限的用户进 /system 落到 users），改投分组内第一个可访问子页
+      const redirectSource = to.redirectedFrom?.matched.at(-1);
+
+      if (redirectSource) {
+        const fallbackPath = resolveFirstAccessiblePath(redirectSource, authStore.currentUser);
+
+        if (fallbackPath && fallbackPath !== to.path) {
+          return {
+            path: fallbackPath,
+            replace: true,
+          };
+        }
       }
 
       return {

@@ -11,4 +11,3 @@ const router = createRouter({
 setupRouterGuards(router);
 
 export default router;
-export { appRoutes, routes } from "@/router/routes";

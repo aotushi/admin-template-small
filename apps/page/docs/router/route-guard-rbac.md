@@ -28,6 +28,7 @@
 | `src/router/guards.ts`         | 注册全局路由守卫                                    |
 | `src/router/access.ts`         | 判断用户是否能访问当前路由（守卫与菜单共用）        |
 | `src/router/menu.ts`           | 根据路由和用户权限生成侧边栏菜单数据                |
+| `src/router/order.ts`          | 同级路由排序比较器（菜单与分组 redirect 改投共用）  |
 | `src/router/redirect.ts`       | 登录后跳转目标解析（防开放重定向）                  |
 | `src/auth/permissions.ts`      | 权限码判定（`hasPermission`）                       |
 | `src/directives/permission.ts` | `v-permission` 按钮级权限指令                       |
@@ -46,12 +47,17 @@
 | -------------- | --------------------------------------------------------------------------------- |
 | `title`        | 页面标题，也是菜单标题来源                                                        |
 | `icon`         | 菜单图标标识，后续侧边栏组件再映射到 Element 图标                                 |
-| `order`        | 同级菜单排序                                                                      |
+| `order`        | 同级菜单排序，约定见表下                                                          |
 | `requiresAuth` | 是否需要登录                                                                      |
 | `guestOnly`    | 已登录用户访问时自动跳回后台                                                      |
 | `hideInMenu`   | 是否隐藏在侧边栏中                                                                |
 | `activeMenu`   | 隐藏详情页用于高亮对应菜单                                                        |
 | `permission`   | RBAC 权限码：声明后由后端下发的 `user.permissions` 判定；未声明的路由登录即可访问 |
+
+`order` 排序约定（比较器在 `src/router/order.ts`，菜单生成与分组 redirect 改投 `resolveFirstAccessiblePath` 共用同一份，保证两处顺序一致）：
+
+- 同级按 `order` 升序；数值从 10 起、步长 10，留出插入空隙，条目增删后回归此步长
+- 未声明 `order` 的路由排在同级最后（排序稳定，保持声明顺序），新页面漏标 `order` 时不会插队到菜单最前
 
 示例（`/system/users`、`/system/roles` 是 `meta.permission` 样板）：
 
@@ -118,7 +124,7 @@ permissions   # 权限码列表，按 user_roles -> roles -> role_menus -> menus
 路由配置
   -> 按用户权限过滤（与守卫共用 access.ts 的同一判定）
   -> 去掉 hideInMenu
-  -> 按 order 排序
+  -> 按 order 排序（order.ts 比较器，未声明 order 的排最后）
   -> 目录路由子项全被权限过滤后整体隐藏（避免空目录）
   -> 生成侧边栏菜单
 ```

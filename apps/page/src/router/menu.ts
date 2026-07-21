@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from "vue-router";
 
 import type { CurrentUser } from "@/api/types";
 import { canAccessRouteMeta } from "@/router/access";
+import { compareRouteOrder } from "@/router/order";
 
 export interface AppMenuItem {
   children?: AppMenuItem[];
@@ -20,7 +21,7 @@ export function createMenuItems(
     routes
       .filter((route) => canAccessRouteMeta(route, user))
       .filter((route) => route.meta?.title && !route.meta.hideInMenu)
-      .sort(sortByRouteOrder)
+      .sort(compareRouteOrder)
       .map((route) => ({ item: createMenuItem(route, user, parentPath), route }))
       // 目录路由（声明了 children）在子项全被权限过滤后整体隐藏，避免出现空目录
       .filter(({ item, route }) => !route.children?.length || Boolean(item.children?.length))
@@ -60,8 +61,4 @@ function resolveMenuPath(route: RouteRecordRaw, routePath: string) {
   }
 
   return routePath;
-}
-
-function sortByRouteOrder(left: RouteRecordRaw, right: RouteRecordRaw) {
-  return (left.meta?.order ?? 0) - (right.meta?.order ?? 0);
 }

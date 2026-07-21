@@ -70,7 +70,7 @@ export const appRoutes: RouteRecordRaw[] = [
   {
     meta: {
       icon: "Grid",
-      order: 55,
+      order: 20,
       requiresAuth: true,
       title: "公共组件",
     },
@@ -130,7 +130,7 @@ export const appRoutes: RouteRecordRaw[] = [
   {
     meta: {
       icon: "Setting",
-      order: 60,
+      order: 30,
       requiresAuth: true,
       title: "系统管理",
     },
@@ -153,7 +153,7 @@ export const appRoutes: RouteRecordRaw[] = [
       {
         component: () => import("@/views/system/roles/RoleManagementView.vue"),
         meta: {
-          order: 30,
+          order: 20,
           permission: PERMISSION_CODES.systemRoleView,
           title: "角色管理",
         },
@@ -163,7 +163,7 @@ export const appRoutes: RouteRecordRaw[] = [
       {
         component: () => import("@/views/system/menus/MenuManagementView.vue"),
         meta: {
-          order: 50,
+          order: 30,
           permission: PERMISSION_CODES.systemMenuView,
           title: "菜单管理",
         },
@@ -173,7 +173,7 @@ export const appRoutes: RouteRecordRaw[] = [
       {
         component: () => import("@/views/system/depts/DeptManagementView.vue"),
         meta: {
-          order: 60,
+          order: 40,
           permission: PERMISSION_CODES.systemDeptView,
           title: "部门管理",
         },

@@ -2,6 +2,7 @@ import type { RouteLocationNormalized, RouteMeta, RouteRecordRaw } from "vue-rou
 
 import type { CurrentUser } from "@/api/types";
 import { hasPermission } from "@/auth/permissions";
+import { compareRouteOrder } from "@/router/order";
 
 // 声明了 meta.permission 的路由用权限码判定（后端实时下发）；未声明视为登录即可访问。
 function canAccessMeta(meta: RouteMeta | undefined, user: CurrentUser | null) {
@@ -26,9 +27,7 @@ export function resolveFirstAccessiblePath(
   record: { children?: readonly RouteRecordRaw[]; path: string },
   user: CurrentUser | null,
 ): string | null {
-  const children = [...(record.children ?? [])].sort(
-    (left, right) => (left.meta?.order ?? 0) - (right.meta?.order ?? 0),
-  );
+  const children = [...(record.children ?? [])].sort(compareRouteOrder);
 
   for (const child of children) {
     if (!canAccessRouteMeta(child, user)) {

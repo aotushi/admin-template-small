@@ -36,7 +36,7 @@ const fixtureRoutes: RouteRecordRaw[] = [
         path: "/dashboard",
       },
       {
-        meta: { order: 60, requiresAuth: true, title: "系统管理" },
+        meta: { order: 30, requiresAuth: true, title: "系统管理" },
         name: "SystemManagement",
         path: "/system",
         redirect: "/system/users",
@@ -49,7 +49,7 @@ const fixtureRoutes: RouteRecordRaw[] = [
           },
           {
             component: PageStub,
-            meta: { order: 30, permission: "system:role:view", title: "角色管理" },
+            meta: { order: 20, permission: "system:role:view", title: "角色管理" },
             name: "SystemRoles",
             path: "roles",
           },

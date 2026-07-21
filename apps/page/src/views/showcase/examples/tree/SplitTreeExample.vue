@@ -2,7 +2,7 @@
 import { computed, shallowRef } from "vue";
 
 import { AdminTreePanel } from "@/components/common";
-import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
+import CommonExampleCard from "@/views/showcase/examples/CommonExampleCard.vue";
 
 interface TreeNode {
   children?: TreeNode[];

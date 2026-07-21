@@ -12,11 +12,11 @@
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | [`src/api/modules/auth.ts`](../../src/api/modules/auth.ts)                                   | 提供 `loginApi()`，只负责调用登录接口                  |
 | [`src/queries/auth.ts`](../../src/queries/auth.ts)                                           | 提供 `useLoginMutation()`，管理登录动作状态            |
-| [`src/views/LoginView.vue`](../../src/views/LoginView.vue)                                   | 调用 `loginMutation.mutateAsync()`，成功后执行路由跳转 |
+| [`src/views/login/LoginView.vue`](../../src/views/login/LoginView.vue)                       | 调用 `loginMutation.mutateAsync()`，成功后执行路由跳转 |
 | [`src/api/http/auth-session-coordinator.ts`](../../src/api/http/auth-session-coordinator.ts) | 执行登录请求并把结果交给 session store                 |
 | [`src/api/session.ts`](../../src/api/session.ts)                                             | 保存内存 session 并通知 Pinia                          |
 | [`src/router/redirect.ts`](../../src/router/redirect.ts)                                     | 统一处理登录成功后的跳转目标                           |
-| [`src/views/DashboardView.vue`](../../src/views/DashboardView.vue)                           | 提供登录成功后的临时目标页                             |
+| [`src/views/dashboard/DashboardView.vue`](../../src/views/dashboard/DashboardView.vue)       | 提供登录成功后的临时目标页                             |
 
 当前流程：
 

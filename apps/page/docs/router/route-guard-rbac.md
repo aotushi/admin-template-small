@@ -21,21 +21,22 @@
 
 ## 2. 源码位置
 
-| 文件                                   | 作用                                                     |
-| -------------------------------------- | -------------------------------------------------------- |
-| `src/router/routes.ts`                 | 声明登录页、业务页、错误页、菜单标题、图标、角色、权限码 |
-| `src/router/types.ts`                  | 扩展 Vue Router 的 `RouteMeta` 类型                      |
-| `src/router/guards.ts`                 | 注册全局路由守卫                                         |
-| `src/router/access.ts`                 | 判断用户是否能访问当前路由（守卫与菜单共用）             |
-| `src/router/menu.ts`                   | 根据路由和用户权限生成侧边栏菜单数据                     |
-| `src/router/redirect.ts`               | 登录后跳转目标解析（防开放重定向）                       |
-| `src/auth/permissions.ts`              | 权限码判定（`hasPermission`）                            |
-| `src/directives/permission.ts`         | `v-permission` 按钮级权限指令                            |
-| `src/stores/auth.ts`                   | 保存当前 token、用户快照（含 `permissions` 权限码）      |
-| `src/views/error/*.vue`                | 403 / 404 / 500 错误页                                   |
-| `src/views/FeaturePlaceholderView.vue` | 业务页面迁移前的路由占位页                               |
+| 文件                           | 作用                                                     |
+| ------------------------------ | -------------------------------------------------------- |
+| `src/router/routes.ts`         | 声明登录页、业务页、错误页、菜单标题、图标、角色、权限码 |
+| `src/router/types.ts`          | 扩展 Vue Router 的 `RouteMeta` 类型                      |
+| `src/router/guards.ts`         | 注册全局路由守卫                                         |
+| `src/router/access.ts`         | 判断用户是否能访问当前路由（守卫与菜单共用）             |
+| `src/router/menu.ts`           | 根据路由和用户权限生成侧边栏菜单数据                     |
+| `src/router/redirect.ts`       | 登录后跳转目标解析（防开放重定向）                       |
+| `src/auth/permissions.ts`      | 权限码判定（`hasPermission`）                            |
+| `src/directives/permission.ts` | `v-permission` 按钮级权限指令                            |
+| `src/stores/auth.ts`           | 保存当前 token、用户快照（含 `permissions` 权限码）      |
+| `src/views/error/*.vue`        | 403 / 404 / 500 错误页                                   |
 
 权限码常量来自 `contracts/admin-api/src/permissions.ts`，前后端共享同一份，避免字符串拼错。
+
+分组路由（`/components`、`/system`）省略 `component`（Vue Router 4.1+ 的 "Omitting parent components"）：记录仍贡献路径前缀、`meta` 链（`to.matched` 守卫照常逐层校验）与 `redirect`，子页面直接渲染进 `MainLayout` 的 `RouterView`，无需空壳透传组件。
 
 ## 3. 路由元信息设计
 

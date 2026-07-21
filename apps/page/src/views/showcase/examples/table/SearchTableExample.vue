@@ -3,7 +3,7 @@ import { computed, reactive, shallowRef, watch } from "vue";
 
 import { AdminDataTable, AdminSearchForm } from "@/components/common";
 import type { AdminFormField, AdminFormModel, AdminTableColumn } from "@/components/common";
-import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
+import CommonExampleCard from "@/views/showcase/examples/CommonExampleCard.vue";
 
 interface TableRow {
   component: string;

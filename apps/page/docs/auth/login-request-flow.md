@@ -99,7 +99,7 @@ authSessionCoordinator.login
 | 文件                                                                                         | 在本案例中的职责                                  |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | [`src/components/auth/AuthLoginForm.vue`](../../src/components/auth/AuthLoginForm.vue)       | 收集用户名、密码和验证码，向父组件发出 `submit`   |
-| [`src/views/LoginView.vue`](../../src/views/LoginView.vue)                                   | 校验表单、调用 mutation、提示结果、登录成功后跳转 |
+| [`src/views/login/LoginView.vue`](../../src/views/login/LoginView.vue)                       | 校验表单、调用 mutation、提示结果、登录成功后跳转 |
 | [`src/queries/auth.ts`](../../src/queries/auth.ts)                                           | 用 mutation 管理登录动作状态和成功后的缓存清理    |
 | [`src/api/modules/auth.ts`](../../src/api/modules/auth.ts)                                   | 定义登录 API 的 URL、请求方法和类型               |
 | [`src/api/request.ts`](../../src/api/request.ts)                                             | 项目的请求层组合根，导出稳定的客户端和会话协调器  |

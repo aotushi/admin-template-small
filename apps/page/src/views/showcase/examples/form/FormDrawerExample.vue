@@ -4,7 +4,7 @@ import { ElMessage } from "element-plus";
 
 import { AdminFormDrawer } from "@/components/common";
 import type { AdminFormField, AdminFormModel } from "@/components/common";
-import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
+import CommonExampleCard from "@/views/showcase/examples/CommonExampleCard.vue";
 
 // 抽屉表单 schema：与角色管理等业务页共用同一套 AdminFormDrawer 封装
 const fields: AdminFormField[] = [

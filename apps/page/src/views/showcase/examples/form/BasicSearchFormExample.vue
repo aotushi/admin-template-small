@@ -3,7 +3,7 @@ import { shallowRef } from "vue";
 
 import { AdminSearchForm } from "@/components/common";
 import type { AdminFormField, AdminFormModel } from "@/components/common";
-import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
+import CommonExampleCard from "@/views/showcase/examples/CommonExampleCard.vue";
 
 // 字段 schema：业务页与演示页共用同一套 AdminSearchForm 封装
 const fields: AdminFormField[] = [

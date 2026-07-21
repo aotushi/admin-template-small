@@ -10,7 +10,7 @@ import AuthToolbar from "@/components/auth/AuthToolbar.vue";
 import { useLoginPreferences } from "@/composables/useLoginPreferences";
 import { useLoginMutation } from "@/queries/auth";
 import { resolvePostLoginRedirect } from "@/router/redirect";
-import { quickAccounts } from "@/views/loginAccounts";
+import { quickAccounts } from "@/views/login/loginAccounts";
 
 const route = useRoute();
 const router = useRouter();

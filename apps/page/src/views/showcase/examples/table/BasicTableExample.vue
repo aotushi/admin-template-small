@@ -3,7 +3,7 @@ import { shallowRef } from "vue";
 
 import { AdminDataTable } from "@/components/common";
 import type { AdminTableColumn } from "@/components/common";
-import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
+import CommonExampleCard from "@/views/showcase/examples/CommonExampleCard.vue";
 
 interface TableRow {
   component: string;

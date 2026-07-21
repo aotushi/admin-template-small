@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from "vue-router";
 
 import App from "./App.vue";
 import router, { routes } from "./router";
-import { quickAccounts } from "./views/loginAccounts";
+import { quickAccounts } from "./views/login/loginAccounts";
 
 function hasRoutePath(routeRecords: readonly RouteRecordRaw[], path: string): boolean {
   return routeRecords.some(

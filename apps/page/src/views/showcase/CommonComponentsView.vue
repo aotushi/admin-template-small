@@ -4,10 +4,10 @@ import type { Component } from "vue";
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 
-import FormExamplesView from "@/views/components/examples/form/FormExamplesView.vue";
-import BasicTableExample from "@/views/components/examples/table/BasicTableExample.vue";
-import SearchTableExample from "@/views/components/examples/table/SearchTableExample.vue";
-import TreeExamplesView from "@/views/components/examples/tree/TreeExamplesView.vue";
+import FormExamplesView from "@/views/showcase/examples/form/FormExamplesView.vue";
+import BasicTableExample from "@/views/showcase/examples/table/BasicTableExample.vue";
+import SearchTableExample from "@/views/showcase/examples/table/SearchTableExample.vue";
+import TreeExamplesView from "@/views/showcase/examples/tree/TreeExamplesView.vue";
 
 const route = useRoute();
 

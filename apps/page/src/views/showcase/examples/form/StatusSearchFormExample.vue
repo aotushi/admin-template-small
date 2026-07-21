@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AdminSearchForm } from "@/components/common";
 import type { AdminFormField } from "@/components/common";
-import CommonExampleCard from "@/views/components/examples/CommonExampleCard.vue";
+import CommonExampleCard from "@/views/showcase/examples/CommonExampleCard.vue";
 
 // 演示 select 默认值与 date-range 字段类型
 const fields: AdminFormField[] = [

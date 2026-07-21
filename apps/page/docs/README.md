@@ -15,6 +15,7 @@
 | 架构   | [v1 后台布局、菜单与 RBAC 设计](architecture/v1-admin-layout-and-rbac.md)     | 后台布局、菜单重组、RBAC、顶部工具区、旧页面取舍          |
 | 架构   | [后台面板 CSS 布局最佳实践](architecture/css-admin-layout-best-practices.md)  | Grid 主壳、Flex 局部、内容区滚动、折叠侧边栏和响应式策略  |
 | 架构   | [主题偏好与 CSS Token 设计](architecture/theme-preferences-and-css-tokens.md) | Vben 风格主题偏好、暗黑模式、主题色和侧边栏 token 组织    |
+| 架构   | [views 目录组织规范](architecture/views-directory-structure.md)               | 模块夹镜像路由、私有资产就近放、共享按作用域提升          |
 | 组件   | [Vue 组件的封装](components/component-encapsulation.md)                       | 从页面拆分到 Props、Emits、v-model、Slots 与公共组件边界  |
 | 路由   | [静态路由、守卫与 RBAC 菜单](router/route-guard-rbac.md)                      | 路由 meta、登录拦截、403、菜单派生、角色过滤              |
 | 路由   | [RBAC 全链路教学案例](router/rbac-end-to-end-flow.md)                         | 从登录权限到菜单、路由、按钮、接口和数据范围              |

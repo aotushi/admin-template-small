@@ -60,6 +60,7 @@
 | v1 后台布局、菜单与 RBAC 设计 | [docs/architecture/v1-admin-layout-and-rbac.md](docs/architecture/v1-admin-layout-and-rbac.md)                 |
 | 后台面板 CSS 布局最佳实践     | [docs/architecture/css-admin-layout-best-practices.md](docs/architecture/css-admin-layout-best-practices.md)   |
 | 主题偏好与 CSS Token 设计     | [docs/architecture/theme-preferences-and-css-tokens.md](docs/architecture/theme-preferences-and-css-tokens.md) |
+| views 目录组织规范            | [docs/architecture/views-directory-structure.md](docs/architecture/views-directory-structure.md)               |
 
 ## 技术点目录
 

@@ -5,7 +5,7 @@ import "@/router/types";
 
 const authRoutes: RouteRecordRaw[] = [
   {
-    component: () => import("@/views/LoginView.vue"),
+    component: () => import("@/views/login/LoginView.vue"),
     meta: {
       guestOnly: true,
       hideInMenu: true,
@@ -56,7 +56,7 @@ const errorRoutes: RouteRecordRaw[] = [
 
 export const appRoutes: RouteRecordRaw[] = [
   {
-    component: () => import("@/views/DashboardView.vue"),
+    component: () => import("@/views/dashboard/DashboardView.vue"),
     meta: {
       icon: "HomeFilled",
       order: 10,
@@ -66,8 +66,8 @@ export const appRoutes: RouteRecordRaw[] = [
     name: "Dashboard",
     path: "/dashboard",
   },
+  // 分组路由省略 component（Vue Router 4.1+）：仅提供路径前缀、meta 链与菜单结构，子页面直接渲染进 MainLayout 的 RouterView
   {
-    component: () => import("@/views/RouteGroupView.vue"),
     meta: {
       icon: "Grid",
       order: 55,
@@ -79,7 +79,6 @@ export const appRoutes: RouteRecordRaw[] = [
     redirect: "/components/table/basic",
     children: [
       {
-        component: () => import("@/views/RouteGroupView.vue"),
         meta: {
           order: 10,
           title: "表格",
@@ -89,7 +88,7 @@ export const appRoutes: RouteRecordRaw[] = [
         redirect: "/components/table/basic",
         children: [
           {
-            component: () => import("@/views/components/CommonComponentsView.vue"),
+            component: () => import("@/views/showcase/CommonComponentsView.vue"),
             meta: {
               order: 10,
               title: "基础表格",
@@ -98,7 +97,7 @@ export const appRoutes: RouteRecordRaw[] = [
             path: "basic",
           },
           {
-            component: () => import("@/views/components/CommonComponentsView.vue"),
+            component: () => import("@/views/showcase/CommonComponentsView.vue"),
             meta: {
               order: 20,
               title: "搜索表格",
@@ -109,7 +108,7 @@ export const appRoutes: RouteRecordRaw[] = [
         ],
       },
       {
-        component: () => import("@/views/components/CommonComponentsView.vue"),
+        component: () => import("@/views/showcase/CommonComponentsView.vue"),
         meta: {
           order: 20,
           title: "查询表单",
@@ -118,7 +117,7 @@ export const appRoutes: RouteRecordRaw[] = [
         path: "form",
       },
       {
-        component: () => import("@/views/components/CommonComponentsView.vue"),
+        component: () => import("@/views/showcase/CommonComponentsView.vue"),
         meta: {
           order: 30,
           title: "树形筛选",
@@ -129,7 +128,6 @@ export const appRoutes: RouteRecordRaw[] = [
     ],
   },
   {
-    component: () => import("@/views/RouteGroupView.vue"),
     meta: {
       icon: "Setting",
       order: 60,

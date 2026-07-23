@@ -12,6 +12,7 @@
 
 | 分类   | 文档                                                                          | 说明                                                      |
 | ------ | ----------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 总纲   | [后台管理前端学习地图](frontend-learning-map.md)                              | 视图、应用、数据、权限、工程五个前端学习方向              |
 | 架构   | [v1 后台布局、菜单与 RBAC 设计](architecture/v1-admin-layout-and-rbac.md)     | 后台布局、菜单重组、RBAC、顶部工具区、旧页面取舍          |
 | 架构   | [后台面板 CSS 布局最佳实践](architecture/css-admin-layout-best-practices.md)  | Grid 主壳、Flex 局部、内容区滚动、折叠侧边栏和响应式策略  |
 | 架构   | [主题偏好与 CSS Token 设计](architecture/theme-preferences-and-css-tokens.md) | Vben 风格主题偏好、暗黑模式、主题色和侧边栏 token 组织    |

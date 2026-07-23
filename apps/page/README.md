@@ -66,6 +66,8 @@
 
 `page` 的学习文档放在 `docs` 目录，用于记录技术方案在当前项目中的用法，以及和其它方案的优缺点比较。
 
+学习总纲：[后台管理前端学习地图](docs/frontend-learning-map.md)
+
 | 技术点                               | 文档                                                                                                           |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | CSS 布局：后台面板布局最佳实践       | [docs/architecture/css-admin-layout-best-practices.md](docs/architecture/css-admin-layout-best-practices.md)   |

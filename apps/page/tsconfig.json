@@ -17,5 +17,5 @@
     "types": ["vite/client", "vitest/globals"],
     "useDefineForClassFields": true
   },
-  "include": ["env.d.ts", "src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
+  "include": ["env.d.ts", "functions/**/*.ts", "src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
 }

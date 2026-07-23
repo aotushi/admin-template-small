@@ -8,7 +8,9 @@ import { permissionDirective } from "./directives/permission";
 import { installPiniaColada } from "./plugins/piniaColada";
 import router from "./router";
 import "./styles/index.css";
+import { setupReleaseRecovery } from "./utils/releaseRecovery";
 
+setupReleaseRecovery();
 const app = createApp(App);
 const pinia = createPinia();
 
